@@ -26,14 +26,6 @@ hcb orgs           # list your organizations
 
 `hcb login` brokers through the hosted server's OAuth bridge by default; pass `--client-id`/`--client-secret` to use your own HCB OAuth app directly.
 
-Admins can request HCB-wide read access without write scopes:
-
-```sh
-hcb login --admin
-```
-
-This asks for `restricted read admin:read organizations:read ledgers:read receipts:read user_lookup event_followers`. Your HCB account still needs an auditor/admin role, and the HCB OAuth app used for login must be registered for those scopes.
-
 ## License
 
 MIT

@@ -125,9 +125,6 @@ func TestWellKnownDocuments(t *testing.T) {
 	if len(as) != 1 || as[0] != srv.URL {
 		t.Errorf("authorization_servers = %v", prm["authorization_servers"])
 	}
-	if !hasScope(prm["scopes_supported"], "admin:read") || !hasScope(prm["scopes_supported"], "restricted") {
-		t.Errorf("protected resource scopes = %v, want admin read-only scopes", prm["scopes_supported"])
-	}
 
 	var asm map[string]any
 	getJSON(t, srv.URL+"/.well-known/oauth-authorization-server", &asm)
@@ -144,22 +141,6 @@ func TestWellKnownDocuments(t *testing.T) {
 	if len(methods) != 1 || methods[0] != "S256" {
 		t.Errorf("code_challenge_methods = %v", asm["code_challenge_methods_supported"])
 	}
-	if !hasScope(asm["scopes_supported"], "admin:read") || !hasScope(asm["scopes_supported"], "restricted") {
-		t.Errorf("authorization server scopes = %v, want admin read-only scopes", asm["scopes_supported"])
-	}
-}
-
-func hasScope(raw any, want string) bool {
-	scopes, ok := raw.([]any)
-	if !ok {
-		return false
-	}
-	for _, s := range scopes {
-		if s == want {
-			return true
-		}
-	}
-	return false
 }
 
 func TestDynamicRegistrationStub(t *testing.T) {
