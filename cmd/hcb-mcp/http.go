@@ -29,6 +29,17 @@ type httpConfig struct {
 	oauthClientSecret string
 }
 
+var supportedOAuthScopes = []string{
+	"read",
+	"restricted",
+	"admin:read",
+	"organizations:read",
+	"ledgers:read",
+	"receipts:read",
+	"user_lookup",
+	"event_followers",
+}
+
 func loadHTTPConfig() (httpConfig, error) {
 	cfg := httpConfig{
 		staticToken:       os.Getenv("MCP_AUTH_TOKEN"),
@@ -109,7 +120,7 @@ func httpHandler(cfg httpConfig) http.Handler {
 		writeJSON(w, http.StatusOK, map[string]any{
 			"resource":                 o + "/mcp",
 			"authorization_servers":    []string{o},
-			"scopes_supported":         []string{"read"},
+			"scopes_supported":         supportedOAuthScopes,
 			"bearer_methods_supported": []string{"header"},
 			"resource_name":            "HCB (read-only)",
 		})
@@ -129,7 +140,7 @@ func httpHandler(cfg httpConfig) http.Handler {
 			"response_types_supported":              []string{"code"},
 			"grant_types_supported":                 []string{"authorization_code", "refresh_token"},
 			"code_challenge_methods_supported":      []string{"S256"},
-			"scopes_supported":                      []string{"read"},
+			"scopes_supported":                      supportedOAuthScopes,
 			"token_endpoint_auth_methods_supported": []string{"none"},
 		})
 	})

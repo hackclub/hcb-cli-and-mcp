@@ -38,4 +38,4 @@ scripts/check_public_safety.sh         # must pass before every commit
 
 ## Auth model (for context)
 
-Tokens come from HCB's OAuth (Doorkeeper). Access tokens last 2 hours; refresh tokens **rotate on every use**, so the client persists the new pair immediately after each refresh. A token without HCB's `restricted` scope has legacy full-token access gated by the user's own permissions — this tooling requests only `read` scope and no admin scopes, so it sees exactly what the logged-in user can see.
+Tokens come from HCB's OAuth (Doorkeeper). Access tokens last 2 hours; refresh tokens **rotate on every use**, so the client persists the new pair immediately after each refresh. A token without HCB's `restricted` scope has legacy full-token access gated by the user's own permissions. The default login requests only `read`, so it sees exactly what the logged-in user can see. `hcb login --admin` requests `restricted read admin:read organizations:read ledgers:read receipts:read user_lookup event_followers`, which requires an auditor/admin HCB account and matching scopes on the OAuth app.

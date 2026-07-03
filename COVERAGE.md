@@ -10,13 +10,13 @@ All 49 rows verified. Real ID prefixes observed in prod: checks `ick_`, check de
 | # | CSV flow | Client method (`hcbapi`) | CLI command | MCP tool | unit | cli | mcp | Notes |
 |---|----------|--------------------------|-------------|----------|------|-----|-----|-------|
 | 1 | Get my profile (+shipping/billing expand, avatar_size) | `GetCurrentUser` | `hcb user` | `hcb_get_profile` | ✅ | ✅ | ✅ | |
-| 2 | List organizations I belong to | `ListMyOrganizations` | `hcb orgs` | `hcb_list_organizations` | ✅ | ✅ | ✅ | 62 orgs live |
+| 2 | List organizations I can read | `ListMyOrganizations` | `hcb orgs` | `hcb_list_organizations` | ✅ | ✅ | ✅ | default token lists memberships; admin-read token lists all non-hidden orgs |
 | 3 | List all my cards across orgs | `ListMyCards` | `hcb cards` | `hcb_list_cards` | ✅ | ✅ | ✅ | object is `stripe_card` |
 | 4 | List card grants I've received | `ListMyCardGrants` | `hcb grants` | `hcb_list_card_grants` | ✅ | ✅ | ✅ | user has none → verified empty-list path; org grants verify positive path |
 | 5 | Find my transactions missing receipts | `ListMissingReceiptTransactions` | `hcb missing-receipts` | `hcb_missing_receipts` | ✅ | ✅ | ✅ | paginated envelope |
 | 6 | Get my available mobile app icons | `AvailableIcons` | `hcb icons` | `hcb_available_icons` | ✅ | ✅ | ✅ | |
-| 7 | Look up any user by public ID | `GetUser` | `hcb lookup <usr_id>` | `hcb_lookup_user` | ✅ | ✅ | ✅ | token has no admin:read by design → verified clean 403 error surface |
-| 8 | Look up any user by email | `GetUserByEmail` | `hcb lookup <email>` | `hcb_lookup_user` | ✅ | ✅ | ✅ | same — graceful 403 verified |
+| 7 | Look up any user by public ID | `GetUser` | `hcb lookup <usr_id>` | `hcb_lookup_user` | ✅ | ✅ | ✅ | default token has no admin:read → verified clean 403 error surface; `hcb login --admin` enables this for auditor/admin accounts |
+| 8 | Look up any user by email | `GetUserByEmail` | `hcb lookup <email>` | `hcb_lookup_user` | ✅ | ✅ | ✅ | same — graceful 403 verified by default |
 | 9 | List my pending org invitations | `ListMyInvitations` | `hcb invitations` | `hcb_list_invitations` | ✅ | ✅ | ✅ | user has none pending → verified empty-list path |
 | 10 | View one of my invitations | `GetInvitation` | `hcb invitation <id>` | `hcb_get_invitation` | ✅ | ✅ | ✅ | no pending invitation exists for the user; verified 404 error path (positive path impossible without a real invite) |
 | 11 | List an org's pending invitations | `ListOrgInvitations` | `hcb invitations --org <org>` | `hcb_list_invitations` | ✅ | ✅ | ✅ | |
@@ -86,4 +86,4 @@ python3 scripts/record_fixtures.py # refresh recorded fixtures
 | Stripe Terminal connection token | Generates a payment token; not read-only in effect |
 | Device-flow endpoints | Broken upstream (500 on prod) — see memory/hcb-v4-api-known-bugs |
 | OAuth app registration, authorize page, client-credentials grant, standard revoke | Interactive browser pages / auth plumbing without read value |
-| Admin read/write/PII scope flows | Token deliberately has no admin scopes |
+| Admin write/PII scope flows | `hcb login --admin` deliberately requests read-only admin scopes only; `admin:write` and `pii` stay out of scope |

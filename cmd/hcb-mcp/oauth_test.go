@@ -184,6 +184,26 @@ func TestSubOAuthWrongVerifierRejected(t *testing.T) {
 	}
 }
 
+func TestSubOAuthForwardsRequestedAdminScopes(t *testing.T) {
+	hcb := fakeHCB(t, nil)
+	defer hcb.Close()
+	srv := httptest.NewServer(httpHandler(testCfg(hcb.URL)))
+	defer srv.Close()
+
+	adminScope := "restricted read admin:read organizations:read ledgers:read receipts:read user_lookup event_followers"
+	loc := get302(t, srv.URL+"/oauth/authorize?"+url.Values{
+		"client_id":             {"hcb-cli"},
+		"redirect_uri":          {"http://localhost:9999/cb"},
+		"response_type":         {"code"},
+		"scope":                 {adminScope},
+		"code_challenge":        {pkce("admin-verifier")},
+		"code_challenge_method": {"S256"},
+	}.Encode())
+	if got := loc.Query().Get("scope"); got != adminScope {
+		t.Fatalf("upstream scope = %q, want %q", got, adminScope)
+	}
+}
+
 func TestSubOAuthRejectsUnsafeRedirects(t *testing.T) {
 	srv := httptest.NewServer(httpHandler(testCfg("https://hcb.example")))
 	defer srv.Close()
