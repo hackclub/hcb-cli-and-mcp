@@ -3,52 +3,104 @@ package main
 import (
 	"context"
 	"encoding/json"
+	"io"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/hackclub/hcb-mcp/internal/hcbapi"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
 
-func TestAuthMiddleware(t *testing.T) {
-	inner := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { w.Write([]byte("ok")) })
-	h := authMiddleware("sekrit", inner)
-	srv := httptest.NewServer(h)
+func testCfg(hcbURL string) httpConfig {
+	return httpConfig{
+		staticToken:       "sekrit",
+		hcbBaseURL:        hcbURL,
+		oauthClientID:     "test-client-id",
+		oauthClientSecret: "test-client-secret",
+	}
+}
+
+// setServerClient points the package-global client (used for static-token
+// requests) at a fake HCB API.
+func setServerClient(t *testing.T, apiURL string) {
+	t.Helper()
+	creds := &hcbapi.Credentials{BaseURL: apiURL, AccessToken: "hcb_server", ClientID: "c", ClientSecret: "s"}
+	path := filepath.Join(t.TempDir(), "credentials.json")
+	if err := creds.Save(path); err != nil {
+		t.Fatal(err)
+	}
+	var err error
+	client, err = hcbapi.NewClient(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestRequireTokenAndAuthModes(t *testing.T) {
+	// fake HCB records which upstream token each request used
+	var lastUpstreamAuth string
+	api := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		lastUpstreamAuth = r.Header.Get("Authorization")
+		w.Write([]byte(`{"id":"usr_1","object":"user"}`))
+	}))
+	defer api.Close()
+	setServerClient(t, api.URL)
+
+	srv := httptest.NewServer(httpHandler(testCfg(api.URL)))
 	defer srv.Close()
 
-	cases := []struct {
-		name   string
-		header string
-		query  string
-		want   int
-	}{
-		{"no auth", "", "", 401},
-		{"wrong bearer", "Bearer nope", "", 401},
-		{"right bearer", "Bearer sekrit", "", 200},
-		{"right query key", "", "?key=sekrit", 200},
-		{"wrong query key", "", "?key=nope", 401},
+	// no token -> 401 with discovery pointer
+	resp, err := http.Post(srv.URL+"/mcp", "application/json", strings.NewReader("{}"))
+	if err != nil {
+		t.Fatal(err)
 	}
-	for _, c := range cases {
-		req, _ := http.NewRequest("GET", srv.URL+"/mcp"+c.query, nil)
-		if c.header != "" {
-			req.Header.Set("Authorization", c.header)
-		}
-		resp, err := http.DefaultClient.Do(req)
-		if err != nil {
-			t.Fatal(err)
-		}
-		resp.Body.Close()
-		if resp.StatusCode != c.want {
-			t.Errorf("%s: status = %d, want %d", c.name, resp.StatusCode, c.want)
-		}
+	resp.Body.Close()
+	if resp.StatusCode != 401 {
+		t.Errorf("no-token status = %d, want 401", resp.StatusCode)
+	}
+	if wa := resp.Header.Get("WWW-Authenticate"); !strings.Contains(wa, "oauth-protected-resource") {
+		t.Errorf("WWW-Authenticate = %q, want resource_metadata pointer", wa)
+	}
+
+	// static token -> uses server-owned creds upstream
+	callProfile(t, srv.URL, "sekrit")
+	if lastUpstreamAuth != "Bearer hcb_server" {
+		t.Errorf("static-token upstream auth = %q, want server token", lastUpstreamAuth)
+	}
+
+	// arbitrary bearer -> forwarded upstream as the user's own HCB token
+	callProfile(t, srv.URL, "hcb_users_own_token")
+	if lastUpstreamAuth != "Bearer hcb_users_own_token" {
+		t.Errorf("per-user upstream auth = %q, want caller token", lastUpstreamAuth)
+	}
+}
+
+// callProfile runs a full MCP session over HTTP with the given bearer token.
+func callProfile(t *testing.T, base, token string) {
+	t.Helper()
+	hc := &http.Client{Transport: bearerRoundTripper{token: token, base: http.DefaultTransport}}
+	mcpClient := mcp.NewClient(&mcp.Implementation{Name: "t", Version: "0"}, nil)
+	session, err := mcpClient.Connect(context.Background(),
+		&mcp.StreamableClientTransport{Endpoint: base + "/mcp", HTTPClient: hc}, nil)
+	if err != nil {
+		t.Fatalf("connect: %v", err)
+	}
+	defer session.Close()
+	res, err := session.CallTool(context.Background(), &mcp.CallToolParams{
+		Name: "hcb_get_profile", Arguments: map[string]any{},
+	})
+	if err != nil || res.IsError {
+		t.Fatalf("tool call failed: %v %v", err, res)
 	}
 }
 
 func TestHealthzNoAuth(t *testing.T) {
-	srv := httptest.NewServer(httpHandler("sekrit"))
+	srv := httptest.NewServer(httpHandler(testCfg("https://hcb.example")))
 	defer srv.Close()
 	resp, err := http.Get(srv.URL + "/healthz")
 	if err != nil {
@@ -60,49 +112,157 @@ func TestHealthzNoAuth(t *testing.T) {
 	}
 }
 
-// Full round-trip: MCP session over authenticated streamable HTTP.
-func TestMCPOverHTTP(t *testing.T) {
-	// fake HCB API + client
-	api := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Write([]byte(`{"id":"usr_1","object":"user","name":"Example"}`))
-	}))
-	defer api.Close()
-	creds := &hcbapi.Credentials{BaseURL: api.URL, AccessToken: "hcb_test", ClientID: "c", ClientSecret: "s"}
-	path := filepath.Join(t.TempDir(), "credentials.json")
-	if err := creds.Save(path); err != nil {
-		t.Fatal(err)
-	}
-	var err error
-	client, err = hcbapi.NewClient(path)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	srv := httptest.NewServer(httpHandler("sekrit"))
+func TestWellKnownDocuments(t *testing.T) {
+	srv := httptest.NewServer(httpHandler(testCfg("https://hcb.example")))
 	defer srv.Close()
 
-	// custom transport injecting the bearer token
-	hc := &http.Client{Transport: bearerRoundTripper{token: "sekrit", base: http.DefaultTransport}}
-	mcpClient := mcp.NewClient(&mcp.Implementation{Name: "t", Version: "0"}, nil)
-	session, err := mcpClient.Connect(context.Background(),
-		&mcp.StreamableClientTransport{Endpoint: srv.URL + "/mcp", HTTPClient: hc}, nil)
-	if err != nil {
-		t.Fatalf("connect over HTTP: %v", err)
+	var prm map[string]any
+	getJSON(t, srv.URL+"/.well-known/oauth-protected-resource", &prm)
+	if prm["resource"] != srv.URL+"/mcp" {
+		t.Errorf("resource = %v", prm["resource"])
 	}
-	defer session.Close()
+	as, _ := prm["authorization_servers"].([]any)
+	if len(as) != 1 || as[0] != srv.URL {
+		t.Errorf("authorization_servers = %v", prm["authorization_servers"])
+	}
 
-	res, err := session.CallTool(context.Background(), &mcp.CallToolParams{
-		Name: "hcb_get_profile", Arguments: map[string]any{},
-	})
+	var asm map[string]any
+	getJSON(t, srv.URL+"/.well-known/oauth-authorization-server", &asm)
+	if asm["authorization_endpoint"] != "https://hcb.example/api/v4/oauth/authorize" {
+		t.Errorf("authorization_endpoint = %v", asm["authorization_endpoint"])
+	}
+	if asm["token_endpoint"] != srv.URL+"/oauth/token" {
+		t.Errorf("token_endpoint = %v", asm["token_endpoint"])
+	}
+	if asm["registration_endpoint"] != srv.URL+"/oauth/register" {
+		t.Errorf("registration_endpoint = %v", asm["registration_endpoint"])
+	}
+	methods, _ := asm["code_challenge_methods_supported"].([]any)
+	if len(methods) != 1 || methods[0] != "S256" {
+		t.Errorf("code_challenge_methods = %v", asm["code_challenge_methods_supported"])
+	}
+}
+
+func TestDynamicRegistrationStub(t *testing.T) {
+	srv := httptest.NewServer(httpHandler(testCfg("https://hcb.example")))
+	defer srv.Close()
+
+	body := `{"client_name":"Claude","redirect_uris":["https://claude.ai/api/mcp/auth_callback"]}`
+	resp, err := http.Post(srv.URL+"/oauth/register", "application/json", strings.NewReader(body))
 	if err != nil {
 		t.Fatal(err)
 	}
-	if res.IsError {
-		t.Fatalf("tool errored: %v", res.Content)
+	defer resp.Body.Close()
+	if resp.StatusCode != 201 {
+		t.Fatalf("register status = %d", resp.StatusCode)
 	}
-	var user map[string]any
-	if err := json.Unmarshal([]byte(res.Content[0].(*mcp.TextContent).Text), &user); err != nil || user["object"] != "user" {
-		t.Errorf("bad result: %v %v", user, err)
+	var reg map[string]any
+	json.NewDecoder(resp.Body).Decode(&reg)
+	if reg["client_id"] != "test-client-id" {
+		t.Errorf("client_id = %v", reg["client_id"])
+	}
+	if _, hasSecret := reg["client_secret"]; hasSecret {
+		t.Error("registration must NOT disclose the client secret")
+	}
+	uris, _ := reg["redirect_uris"].([]any)
+	if len(uris) != 1 || uris[0] != "https://claude.ai/api/mcp/auth_callback" {
+		t.Errorf("redirect_uris = %v", reg["redirect_uris"])
+	}
+}
+
+func TestTokenProxyInjectsSecret(t *testing.T) {
+	var upstreamForm url.Values
+	hcb := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/api/v4/oauth/token" {
+			t.Errorf("upstream path = %s", r.URL.Path)
+		}
+		r.ParseForm()
+		upstreamForm = r.PostForm
+		w.Header().Set("Content-Type", "application/json")
+		w.Write([]byte(`{"access_token":"hcb_new","refresh_token":"r2","token_type":"Bearer","expires_in":7200}`))
+	}))
+	defer hcb.Close()
+
+	srv := httptest.NewServer(httpHandler(testCfg(hcb.URL)))
+	defer srv.Close()
+
+	form := url.Values{
+		"grant_type":    {"authorization_code"},
+		"code":          {"abc"},
+		"code_verifier": {"ver123"},
+		"client_id":     {"test-client-id"},
+		"redirect_uri":  {"https://claude.ai/api/mcp/auth_callback"},
+	}
+	resp, err := http.Post(srv.URL+"/oauth/token", "application/x-www-form-urlencoded",
+		strings.NewReader(form.Encode()))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer resp.Body.Close()
+	b, _ := io.ReadAll(resp.Body)
+	if resp.StatusCode != 200 || !strings.Contains(string(b), "hcb_new") {
+		t.Fatalf("proxy response %d: %s", resp.StatusCode, b)
+	}
+	if upstreamForm.Get("client_secret") != "test-client-secret" {
+		t.Error("client_secret not injected upstream")
+	}
+	if upstreamForm.Get("code_verifier") != "ver123" || upstreamForm.Get("code") != "abc" {
+		t.Errorf("form not passed through: %v", upstreamForm)
+	}
+}
+
+func TestTokenProxyForwardsErrors(t *testing.T) {
+	hcb := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusBadRequest)
+		w.Write([]byte(`{"error":"invalid_grant"}`))
+	}))
+	defer hcb.Close()
+	srv := httptest.NewServer(httpHandler(testCfg(hcb.URL)))
+	defer srv.Close()
+
+	resp, err := http.Post(srv.URL+"/oauth/token", "application/x-www-form-urlencoded",
+		strings.NewReader("grant_type=authorization_code&code=bad"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer resp.Body.Close()
+	b, _ := io.ReadAll(resp.Body)
+	if resp.StatusCode != 400 || !strings.Contains(string(b), "invalid_grant") {
+		t.Errorf("error not forwarded: %d %s", resp.StatusCode, b)
+	}
+}
+
+func TestCORSPreflightOnOAuthEndpoints(t *testing.T) {
+	srv := httptest.NewServer(httpHandler(testCfg("https://hcb.example")))
+	defer srv.Close()
+	for _, path := range []string{"/.well-known/oauth-authorization-server", "/oauth/token", "/oauth/register", "/mcp"} {
+		req, _ := http.NewRequest(http.MethodOptions, srv.URL+path, nil)
+		resp, err := http.DefaultClient.Do(req)
+		if err != nil {
+			t.Fatal(err)
+		}
+		resp.Body.Close()
+		if resp.StatusCode != 204 {
+			t.Errorf("OPTIONS %s = %d, want 204", path, resp.StatusCode)
+		}
+		if resp.Header.Get("Access-Control-Allow-Origin") != "*" {
+			t.Errorf("%s missing CORS header", path)
+		}
+	}
+}
+
+func getJSON(t *testing.T, url string, v any) {
+	t.Helper()
+	resp, err := http.Get(url)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != 200 {
+		t.Fatalf("GET %s = %d", url, resp.StatusCode)
+	}
+	if err := json.NewDecoder(resp.Body).Decode(v); err != nil {
+		t.Fatal(err)
 	}
 }
 

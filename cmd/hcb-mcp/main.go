@@ -38,7 +38,8 @@ func main() {
 		log.Fatal(err)
 	}
 	client, err = hcbapi.NewClient(credsPath)
-	if err != nil {
+	if err != nil && *httpAddr == "" && os.Getenv("PORT") == "" {
+		// stdio mode cannot work without server-owned credentials
 		log.Fatalf("loading credentials: %v (run `hcb login` first, or set HCB_CREDENTIALS_JSON)", err)
 	}
 
@@ -57,7 +58,7 @@ func main() {
 		Title:   "HCB (read-only)",
 		Version: "0.1.0",
 	}, nil)
-	registerTools(server)
+	registerTools(server, client)
 	if err := server.Run(context.Background(), &mcp.StdioTransport{}); err != nil {
 		log.Fatalf("server failed: %v", err)
 	}

@@ -53,6 +53,11 @@ MCP_AUTH_TOKEN=<random-secret> hcb-mcp --http :8080
 - Endpoint: `POST /mcp` with `Authorization: Bearer <token>` (or `?key=<token>` for clients that can't set headers). `GET /healthz` is unauthenticated.
 - Container bootstrap: set `HCB_CREDENTIALS_JSON` to seed `/data/credentials.json` on first boot (a persistent volume — HCB rotates refresh tokens, so credentials must outlive restarts). See the [Dockerfile](Dockerfile).
 
+Two auth modes, usable together:
+
+1. **Shared secret** (`MCP_AUTH_TOKEN`): a request presenting the secret uses the *server-owned* HCB credentials.
+2. **Per-user OAuth** (`HCB_OAUTH_CLIENT_ID` + `HCB_OAUTH_CLIENT_SECRET`): the server hosts the MCP OAuth discovery flow — `/.well-known/oauth-protected-resource`, RFC 8414 metadata, a dynamic-client-registration stub (HCB's Doorkeeper has no DCR, so it returns the pre-registered app), and a token proxy that injects the client secret server-side. OAuth-capable MCP clients (e.g. claude.ai custom connectors) send users through HCB's real authorize page and then call `/mcp` with the user's own HCB token, so **each user sees exactly what their HCB account can see**. Any other bearer token presented to `/mcp` is likewise forwarded upstream as that caller's HCB token. The redirect URIs the client uses (e.g. `https://claude.ai/api/mcp/auth_callback`) must be registered on the HCB OAuth app.
+
 ## Coverage
 
 See [COVERAGE.md](COVERAGE.md) — every read flow from [hcb-v4-api-flows.csv](hcb-v4-api-flows.csv) mapped to client method → CLI command → MCP tool → test status.

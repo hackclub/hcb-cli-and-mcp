@@ -71,6 +71,17 @@ func NewClientFromDefaultPath() (*Client, error) {
 	return NewClient(path)
 }
 
+// NewClientWithToken returns a client that authenticates with a fixed access
+// token supplied by the caller (e.g. per-request tokens on a multi-user HTTP
+// server). It never refreshes and never persists anything.
+func NewClientWithToken(baseURL, accessToken string) *Client {
+	return &Client{
+		hc:    &http.Client{Timeout: 60 * time.Second},
+		creds: &Credentials{BaseURL: baseURL, AccessToken: accessToken},
+		now:   time.Now,
+	}
+}
+
 func (c *Client) CredentialsPath() string { return c.credsPath }
 
 // BaseURL returns the API host (e.g. https://hcb.hackclub.com).
@@ -89,6 +100,13 @@ func (c *Client) accessToken(ctx context.Context) (string, error) {
 		}
 	}
 	return c.creds.AccessToken, nil
+}
+
+// canRefresh reports whether this client owns a refresh token.
+func (c *Client) canRefresh() bool {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	return c.creds.RefreshToken != ""
 }
 
 // refreshLocked exchanges the refresh token and persists the rotated pair.
@@ -134,8 +152,10 @@ func (c *Client) refreshLocked(ctx context.Context) error {
 	}
 	c.creds.CreatedAt = tok.CreatedAt
 	c.creds.ExpiresIn = tok.ExpiresIn
-	if err := c.creds.Save(c.credsPath); err != nil {
-		return fmt.Errorf("persisting rotated tokens: %w", err)
+	if c.credsPath != "" {
+		if err := c.creds.Save(c.credsPath); err != nil {
+			return fmt.Errorf("persisting rotated tokens: %w", err)
+		}
 	}
 	return nil
 }
@@ -158,7 +178,7 @@ func (c *Client) Get(ctx context.Context, path string, query url.Values) (json.R
 	if err != nil {
 		return nil, err
 	}
-	if status == http.StatusUnauthorized {
+	if status == http.StatusUnauthorized && c.canRefresh() {
 		c.mu.Lock()
 		refreshErr := c.refreshLocked(ctx)
 		token = c.creds.AccessToken

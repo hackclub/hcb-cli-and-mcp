@@ -36,7 +36,7 @@ func startSession(t *testing.T, apiHandler http.Handler) *mcp.ClientSession {
 	}
 
 	server := mcp.NewServer(&mcp.Implementation{Name: "hcb-test", Version: "0.0.1"}, nil)
-	registerTools(server)
+	registerTools(server, client)
 
 	st, ct := mcp.NewInMemoryTransports()
 	ctx := context.Background()

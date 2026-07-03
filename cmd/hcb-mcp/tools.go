@@ -70,7 +70,9 @@ type pageArgs struct {
 	After string `json:"after,omitempty" jsonschema:"cursor: last item id of previous page"`
 }
 
-func registerTools(server *mcp.Server) {
+// registerTools registers every tool on server, bound to the given API
+// client (the param shadows the package global so closures capture it).
+func registerTools(server *mcp.Server, client *hcbapi.Client) {
 	// --- current user ---
 	mcp.AddTool(server, &mcp.Tool{
 		Name:        "hcb_get_profile",
