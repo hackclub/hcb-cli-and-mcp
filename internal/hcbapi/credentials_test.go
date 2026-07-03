@@ -1,13 +1,20 @@
 package hcbapi
 
 import (
+	"encoding/base64"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 )
 
+func testCredentialsKey() string {
+	return base64.StdEncoding.EncodeToString([]byte("0123456789abcdef0123456789abcdef"))
+}
+
 func TestLoadSaveCredentials(t *testing.T) {
+	t.Setenv("HCB_CREDENTIALS_KEY", "")
 	dir := t.TempDir()
 	path := filepath.Join(dir, "credentials.json")
 
@@ -39,6 +46,45 @@ func TestLoadSaveCredentials(t *testing.T) {
 	}
 	if *got != *creds {
 		t.Errorf("round-trip mismatch: got %+v want %+v", got, creds)
+	}
+}
+
+func TestLoadSaveEncryptedCredentials(t *testing.T) {
+	t.Setenv("HCB_CREDENTIALS_KEY", testCredentialsKey())
+	path := filepath.Join(t.TempDir(), "credentials.json")
+
+	creds := &Credentials{
+		BaseURL:      "https://hcb.hackclub.com",
+		ClientID:     "cid",
+		ClientSecret: "csec",
+		AccessToken:  "hcb_abc",
+		RefreshToken: "ref_1",
+		Scope:        "read admin:read",
+		CreatedAt:    1751500000,
+		ExpiresIn:    7200,
+	}
+	if err := creds.Save(path); err != nil {
+		t.Fatalf("Save: %v", err)
+	}
+	raw, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(string(raw), "hcb_abc") || strings.Contains(string(raw), "ref_1") || strings.Contains(string(raw), "client_secret") {
+		t.Fatalf("encrypted credentials file leaked plaintext: %s", raw)
+	}
+
+	got, err := LoadCredentials(path)
+	if err != nil {
+		t.Fatalf("LoadCredentials: %v", err)
+	}
+	if *got != *creds {
+		t.Errorf("round-trip mismatch: got %+v want %+v", got, creds)
+	}
+
+	t.Setenv("HCB_CREDENTIALS_KEY", "")
+	if _, err := LoadCredentials(path); err == nil {
+		t.Fatal("encrypted credentials loaded without HCB_CREDENTIALS_KEY")
 	}
 }
 

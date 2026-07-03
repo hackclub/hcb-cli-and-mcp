@@ -10,6 +10,7 @@
 //
 //	HCB_CREDENTIALS       path to credentials.json (default ~/.config/hcb/credentials.json)
 //	HCB_CREDENTIALS_JSON  seeds the credentials file if it doesn't exist (container bootstrap)
+//	HCB_CREDENTIALS_KEY   32-byte base64/hex/raw key; required for MCP_AUTH_TOKEN server credentials
 //	MCP_AUTH_TOKEN        shared secret for --http mode (Bearer header or ?key=)
 //	PORT                  listen port for --http mode when no address is given
 package main

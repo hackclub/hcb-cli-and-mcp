@@ -4,7 +4,7 @@
 
 Nothing private may be committed — not in files, not in git history:
 
-- **No credentials, ever.** No access/refresh tokens, OAuth client IDs/secrets, or `credentials.json` contents. Credentials live only at `~/.config/hcb/credentials.json` (chmod 600), which is outside the repo.
+- **No credentials, ever.** No access/refresh tokens, OAuth client IDs/secrets, or `credentials.json` contents. Local credentials live only at `~/.config/hcb/credentials.json` (chmod 600), which is outside the repo. Server-owned credentials must be encrypted with `HCB_CREDENTIALS_KEY`.
 - **No real personal data in fixtures.** `internal/hcbapi/testdata/` must contain only synthetic values. Fixtures are recorded from production by `scripts/record_fixtures.py`, which automatically runs `scripts/sanitize_fixtures.py` (fakes emails, names, addresses, birthdays, memos, filenames, last4, signed file URLs, and public-id suffixes; keeps only the public `hq` org slug/name). Never bypass the sanitizer; if you add a new fixture field that could carry personal data, extend the sanitizer's key lists first.
 - **No real object IDs in code, scripts, or docs.** E2E drivers (`scripts/e2e_cli.sh`, `scripts/e2e-mcp`) discover IDs dynamically from the authenticated user's own data — keep it that way.
 - **No signed storage URLs** (`hcb.hackclub.com/storage/...`, `rails/active_storage`). They grant access to real files without authentication.
@@ -38,4 +38,6 @@ scripts/check_public_safety.sh         # must pass before every commit
 
 ## Auth model (for context)
 
-Tokens come from HCB's OAuth (Doorkeeper). Access tokens last 2 hours; refresh tokens **rotate on every use**, so the client persists the new pair immediately after each refresh. A token without HCB's `restricted` scope has legacy full-token access gated by the user's own permissions — this tooling requests only `read` scope and no admin scopes, so it sees exactly what the logged-in user can see.
+Tokens come from HCB's OAuth (Doorkeeper). Access tokens last 2 hours; refresh tokens **rotate on every use**, so the client persists the new pair immediately after each refresh. A token without HCB's `restricted` scope has legacy full-token access gated by the user's own permissions. Normal login requests `read`; `hcb login --admin` requests only `read admin:read` for auditor/admin accounts. The hosted OAuth bridge allowlists only `read` and `admin:read`, never `write`, `admin:write`, `pii`, or `restricted`.
+
+When `hcb-mcp --http` is deployed with `MCP_AUTH_TOKEN`, that shared secret maps callers to server-owned HCB credentials. In that mode `HCB_CREDENTIALS_KEY` is required, the credentials file must already be an encrypted AES-256-GCM envelope, and any `HCB_CREDENTIALS_JSON` seed must be an encrypted envelope too. Plaintext server credential files or seeds are rejected. Generate the key with `openssl rand -base64 32`.

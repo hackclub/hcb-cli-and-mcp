@@ -97,6 +97,9 @@ func TestSubOAuthFullFlow(t *testing.T) {
 	if up.Get("client_id") != "test-client-id" || up.Get("redirect_uri") != wantRedirect {
 		t.Fatalf("upstream authorize params wrong: %v", up)
 	}
+	if up.Get("scope") != "read" {
+		t.Fatalf("upstream scope = %q, want read", up.Get("scope"))
+	}
 	nonce := up.Get("state")
 	if nonce == "" || nonce == "client-state-1" {
 		t.Fatalf("upstream state must be a fresh nonce, got %q", nonce)
@@ -150,6 +153,39 @@ func TestSubOAuthFullFlow(t *testing.T) {
 	defer resp2.Body.Close()
 	if resp2.StatusCode == 200 {
 		t.Error("replayed code must not succeed")
+	}
+}
+
+func TestSubOAuthForwardsAdminReadScope(t *testing.T) {
+	srv := httptest.NewServer(httpHandler(testCfg("https://hcb.example")))
+	defer srv.Close()
+
+	loc := get302(t, srv.URL+"/oauth/authorize?"+url.Values{
+		"client_id":     {"hcb-cli"},
+		"redirect_uri":  {"http://localhost:9999/cb"},
+		"response_type": {"code"},
+		"scope":         {"read admin:read"},
+	}.Encode())
+	if loc.Query().Get("scope") != "read admin:read" {
+		t.Fatalf("upstream scope = %q, want read admin:read", loc.Query().Get("scope"))
+	}
+}
+
+func TestSubOAuthRejectsWriteScopes(t *testing.T) {
+	srv := httptest.NewServer(httpHandler(testCfg("https://hcb.example")))
+	defer srv.Close()
+
+	loc := get302(t, srv.URL+"/oauth/authorize?"+url.Values{
+		"client_id":     {"hcb-cli"},
+		"redirect_uri":  {"http://localhost:9999/cb"},
+		"response_type": {"code"},
+		"scope":         {"read admin:write"},
+	}.Encode())
+	if !strings.HasPrefix(loc.String(), "http://localhost:9999/cb") {
+		t.Fatalf("error redirect = %s, want client redirect", loc)
+	}
+	if loc.Query().Get("error") != "invalid_scope" {
+		t.Fatalf("error = %q, want invalid_scope", loc.Query().Get("error"))
 	}
 }
 

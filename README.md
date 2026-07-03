@@ -21,10 +21,23 @@ This installs both binaries: the `hcb` CLI and the `hcb-mcp` server. Then:
 
 ```sh
 hcb login          # authorize in your browser — no client id/secret needed
+hcb login --admin  # request admin read visibility, if your HCB account supports it
 hcb orgs           # list your organizations
 ```
 
 `hcb login` brokers through the hosted server's OAuth bridge by default; pass `--client-id`/`--client-secret` to use your own HCB OAuth app directly.
+
+Admin login requests only `read admin:read`. It does not request `write`, `admin:write`, `pii`, or `restricted`. The boundary is this app's read-only CLI/MCP surface and OAuth scope allowlist, so the HCB OAuth app used by the bridge must be registered for `admin:read`.
+
+### Hosted server credentials
+
+If `hcb-mcp --http` uses `MCP_AUTH_TOKEN`, requests with that shared secret use server-owned HCB credentials. In that mode the server refuses to start unless `HCB_CREDENTIALS_KEY` is set and the credentials file is already an encrypted AES-256-GCM envelope. If the file is missing, `HCB_CREDENTIALS_JSON` must also be an encrypted envelope; plaintext server credential seeds are rejected.
+
+Generate a key with:
+
+```sh
+openssl rand -base64 32
+```
 
 ## License
 

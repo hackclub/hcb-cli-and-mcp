@@ -70,9 +70,17 @@ type pageArgs struct {
 	After string `json:"after,omitempty" jsonschema:"cursor: last item id of previous page"`
 }
 
+type toolOptions struct {
+	AllowLocalFileWrites bool
+}
+
 // registerTools registers every tool on server, bound to the given API
 // client (the param shadows the package global so closures capture it).
 func registerTools(server *mcp.Server, client *hcbapi.Client) {
+	registerToolsWithOptions(server, client, toolOptions{AllowLocalFileWrites: true})
+}
+
+func registerToolsWithOptions(server *mcp.Server, client *hcbapi.Client, opts toolOptions) {
 	// --- current user ---
 	mcp.AddTool(server, &mcp.Tool{
 		Name:        "hcb_get_profile",
@@ -223,6 +231,9 @@ func registerTools(server *mcp.Server, client *hcbapi.Client) {
 		Directory   string `json:"directory,omitempty" jsonschema:"destination directory (default: OS temp dir)"`
 		Preview     bool   `json:"preview,omitempty" jsonschema:"download preview image instead of original"`
 	}) (*mcp.CallToolResult, any, error) {
+		if !opts.AllowLocalFileWrites {
+			return errResult(fmt.Errorf("file downloads are disabled in HTTP mode"))
+		}
 		rawList, err := client.ListReceipts(ctx, a.Transaction)
 		if err != nil {
 			return errResult(err)
@@ -273,6 +284,9 @@ func registerTools(server *mcp.Server, client *hcbapi.Client) {
 		Directory string `json:"directory,omitempty" jsonschema:"destination directory (default: OS temp dir)"`
 		Filename  string `json:"filename,omitempty" jsonschema:"override the saved filename"`
 	}) (*mcp.CallToolResult, any, error) {
+		if !opts.AllowLocalFileWrites {
+			return errResult(fmt.Errorf("file downloads are disabled in HTTP mode"))
+		}
 		dir := a.Directory
 		if dir == "" {
 			dir = tempDir("hcb-files")

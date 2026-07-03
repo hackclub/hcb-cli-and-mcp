@@ -109,7 +109,7 @@ func httpHandler(cfg httpConfig) http.Handler {
 		writeJSON(w, http.StatusOK, map[string]any{
 			"resource":                 o + "/mcp",
 			"authorization_servers":    []string{o},
-			"scopes_supported":         []string{"read"},
+			"scopes_supported":         supportedOAuthScopes,
 			"bearer_methods_supported": []string{"header"},
 			"resource_name":            "HCB (read-only)",
 		})
@@ -129,7 +129,7 @@ func httpHandler(cfg httpConfig) http.Handler {
 			"response_types_supported":              []string{"code"},
 			"grant_types_supported":                 []string{"authorization_code", "refresh_token"},
 			"code_challenge_methods_supported":      []string{"S256"},
-			"scopes_supported":                      []string{"read"},
+			"scopes_supported":                      supportedOAuthScopes,
 			"token_endpoint_auth_methods_supported": []string{"none"},
 		})
 	})
@@ -146,9 +146,15 @@ func httpHandler(cfg httpConfig) http.Handler {
 		var req struct {
 			RedirectURIs []string `json:"redirect_uris"`
 			ClientName   string   `json:"client_name"`
+			Scope        string   `json:"scope"`
 		}
 		body, _ := io.ReadAll(io.LimitReader(r.Body, 1<<20))
 		json.Unmarshal(body, &req)
+		scope, err := normalizeOAuthScope(req.Scope)
+		if err != nil {
+			writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid_scope", "error_description": err.Error()})
+			return
+		}
 		writeJSON(w, http.StatusCreated, map[string]any{
 			"client_id":                  cfg.oauthClientID,
 			"redirect_uris":              req.RedirectURIs,
@@ -156,7 +162,7 @@ func httpHandler(cfg httpConfig) http.Handler {
 			"token_endpoint_auth_method": "none",
 			"grant_types":                []string{"authorization_code", "refresh_token"},
 			"response_types":             []string{"code"},
-			"scope":                      "read",
+			"scope":                      scope,
 		})
 	})
 
@@ -176,6 +182,14 @@ func httpHandler(cfg httpConfig) http.Handler {
 		if err := r.ParseForm(); err != nil {
 			writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid_request"})
 			return
+		}
+		if requested := r.PostForm.Get("scope"); requested != "" {
+			scope, err := normalizeOAuthScope(requested)
+			if err != nil {
+				writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid_scope", "error_description": err.Error()})
+				return
+			}
+			r.PostForm.Set("scope", scope)
 		}
 		if r.PostForm.Get("grant_type") == "authorization_code" {
 			tokenJSON, ok, errCode := bridge.redeem(
@@ -232,7 +246,7 @@ func httpHandler(cfg httpConfig) http.Handler {
 			Title:   "HCB (read-only)",
 			Version: "0.1.0",
 		}, nil)
-		registerTools(server, c)
+		registerToolsWithOptions(server, c, toolOptions{AllowLocalFileWrites: false})
 		return server
 	}, nil)
 
@@ -255,6 +269,24 @@ func resolveCredentialsPath() (string, error) {
 	}
 	if _, err := os.Stat(path); os.IsNotExist(err) {
 		if seed := os.Getenv("HCB_CREDENTIALS_JSON"); seed != "" {
+			seedBytes := []byte(seed)
+			if os.Getenv("MCP_AUTH_TOKEN") != "" {
+				if err := hcbapi.RequireCredentialsEncryptionKey(); err != nil {
+					return "", fmt.Errorf("HCB_CREDENTIALS_JSON with MCP_AUTH_TOKEN requires encrypted credential storage: %w", err)
+				}
+				if !hcbapi.CredentialsJSONEncrypted(seedBytes) {
+					return "", fmt.Errorf("HCB_CREDENTIALS_JSON with MCP_AUTH_TOKEN must be an encrypted credentials envelope")
+				}
+			}
+			if hcbapi.CredentialsJSONEncrypted(seedBytes) {
+				if _, err := hcbapi.LoadCredentialsBytes(seedBytes); err != nil {
+					return "", fmt.Errorf("validating encrypted HCB_CREDENTIALS_JSON: %w", err)
+				}
+				if err := hcbapi.WriteCredentialsBytes(path, seedBytes); err != nil {
+					return "", fmt.Errorf("seeding encrypted credentials file: %w", err)
+				}
+				return path, nil
+			}
 			var creds hcbapi.Credentials
 			if err := jsonUnmarshalStrict(seed, &creds); err != nil {
 				return "", fmt.Errorf("parsing HCB_CREDENTIALS_JSON: %w", err)
@@ -303,13 +335,36 @@ func clientForRequest(cfg httpConfig, r *http.Request) *hcbapi.Client {
 	return hcbapi.NewClientWithToken(cfg.hcbBaseURL, tok)
 }
 
+func validateHTTPServerCredentials(cfg httpConfig) error {
+	if cfg.staticToken != "" && client == nil {
+		return fmt.Errorf("MCP_AUTH_TOKEN (shared-secret mode) is set but no server credentials could be loaded — set HCB_CREDENTIALS_JSON or unset MCP_AUTH_TOKEN")
+	}
+	if cfg.staticToken != "" {
+		if err := hcbapi.RequireCredentialsEncryptionKey(); err != nil {
+			return fmt.Errorf("MCP_AUTH_TOKEN uses server-owned credentials, so encrypted credential storage is required: %w", err)
+		}
+		path := client.CredentialsPath()
+		if path == "" {
+			return fmt.Errorf("MCP_AUTH_TOKEN requires server-owned credentials loaded from an encrypted credentials file")
+		}
+		encrypted, err := hcbapi.CredentialsFileEncrypted(path)
+		if err != nil {
+			return fmt.Errorf("checking server credentials encryption: %w", err)
+		}
+		if !encrypted {
+			return fmt.Errorf("server-owned credentials file %s is plaintext; rewrite it with HCB_CREDENTIALS_KEY set before starting shared-secret mode", path)
+		}
+	}
+	return nil
+}
+
 func serveHTTP(addr string) error {
 	cfg, err := loadHTTPConfig()
 	if err != nil {
 		return err
 	}
-	if cfg.staticToken != "" && client == nil {
-		return fmt.Errorf("MCP_AUTH_TOKEN (shared-secret mode) is set but no server credentials could be loaded — set HCB_CREDENTIALS_JSON or unset MCP_AUTH_TOKEN")
+	if err := validateHTTPServerCredentials(cfg); err != nil {
+		return err
 	}
 	fmt.Fprintf(os.Stderr, "hcb-mcp listening on %s (endpoint /mcp, health /healthz, oauth bridge %v)\n",
 		addr, cfg.oauthClientID != "")

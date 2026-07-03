@@ -114,10 +114,15 @@ func runPage(fn func() (*hcbapi.Page, error)) error {
 
 // defaultAuthServer is the hosted HCB MCP server; its OAuth bridge brokers
 // browser logins so the CLI needs no client id or secret of its own.
-const defaultAuthServer = "https://hcb-mcp.k.hackclub.dev"
+const (
+	defaultAuthServer = "https://hcb-mcp.k.hackclub.dev"
+	defaultLoginScope = "read"
+	adminLoginScope   = "read admin:read"
+)
 
 func loginCmd() *cobra.Command {
 	var clientID, clientSecret, baseURL, scope, authServer string
+	var admin bool
 	cmd := &cobra.Command{
 		Use:   "login",
 		Short: "Authorize via browser (authorization-code flow with localhost callback)",
@@ -149,6 +154,12 @@ func loginCmd() *cobra.Command {
 					baseURL = existing.BaseURL
 				}
 			}
+			if admin {
+				if cmd.Flags().Changed("scope") {
+					return fmt.Errorf("pass either --admin or --scope, not both")
+				}
+				scope = adminLoginScope
+			}
 			if baseURL == "" {
 				baseURL = "https://hcb.hackclub.com"
 			}
@@ -177,7 +188,8 @@ func loginCmd() *cobra.Command {
 	cmd.Flags().StringVar(&clientID, "client-id", "", "OAuth application UID (omit to use the hosted auth server)")
 	cmd.Flags().StringVar(&clientSecret, "client-secret", "", "OAuth application secret (confidential apps)")
 	cmd.Flags().StringVar(&baseURL, "base-url", "", "HCB base URL (default https://hcb.hackclub.com)")
-	cmd.Flags().StringVar(&scope, "scope", "read", "OAuth scopes to request")
+	cmd.Flags().StringVar(&scope, "scope", defaultLoginScope, "OAuth scopes to request")
+	cmd.Flags().BoolVar(&admin, "admin", false, "request read-only admin visibility (read admin:read; requires an eligible HCB account)")
 	cmd.Flags().StringVar(&authServer, "auth-server", defaultAuthServer, "hosted OAuth bridge used when no --client-id is given")
 	return cmd
 }

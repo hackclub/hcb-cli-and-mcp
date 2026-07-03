@@ -153,8 +153,10 @@ func (b *authBridge) handleAuthorize(cfg httpConfig) http.HandlerFunc {
 			return
 		}
 		scope := q.Get("scope")
-		if scope == "" {
-			scope = "read"
+		scope, err := normalizeOAuthScope(scope)
+		if err != nil {
+			fail("invalid_scope", err.Error())
+			return
 		}
 
 		nonce := randNonce()
