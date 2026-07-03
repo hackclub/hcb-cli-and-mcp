@@ -5,13 +5,13 @@
 class Hcb < Formula
   desc "Read-only CLI and MCP server for the HCB v4 API"
   homepage "https://github.com/hackclub/hcb-cli-and-mcp"
-  version "0.1.3"
+  version "0.1.4"
   license "MIT"
 
   on_macos do
     if Hardware::CPU.intel?
-      url "https://github.com/hackclub/hcb-cli-and-mcp/releases/download/v0.1.3/hcb_0.1.3_darwin_amd64.tar.gz"
-      sha256 "c382ae857b033a31e7d38e5ee0638cae354f01a2a361c33367f44921ba5c8838"
+      url "https://github.com/hackclub/hcb-cli-and-mcp/releases/download/v0.1.4/hcb_0.1.4_darwin_amd64.tar.gz"
+      sha256 "b9c93ede93e7d9e59894cdabb110680a527334faec129adde63cd800ec97f2a7"
 
       define_method(:install) do
         bin.install "hcb"
@@ -19,8 +19,8 @@ class Hcb < Formula
       end
     end
     if Hardware::CPU.arm?
-      url "https://github.com/hackclub/hcb-cli-and-mcp/releases/download/v0.1.3/hcb_0.1.3_darwin_arm64.tar.gz"
-      sha256 "6a6eff5423c48266d54494d1e4c5e4a09e8ad403db4e47990bb9e219d3dcbb56"
+      url "https://github.com/hackclub/hcb-cli-and-mcp/releases/download/v0.1.4/hcb_0.1.4_darwin_arm64.tar.gz"
+      sha256 "319478d64c10f9f79afb480fe8ecfd315b34f09c508901a0eee6bb9bfe4ca8e1"
 
       define_method(:install) do
         bin.install "hcb"
@@ -31,16 +31,16 @@ class Hcb < Formula
 
   on_linux do
     if Hardware::CPU.intel? && Hardware::CPU.is_64_bit?
-      url "https://github.com/hackclub/hcb-cli-and-mcp/releases/download/v0.1.3/hcb_0.1.3_linux_amd64.tar.gz"
-      sha256 "d7d633546ce4f4b6e3498c550632c417eb94f1be55cbcffab62ecab8d135046d"
+      url "https://github.com/hackclub/hcb-cli-and-mcp/releases/download/v0.1.4/hcb_0.1.4_linux_amd64.tar.gz"
+      sha256 "0edc69b194a830fd9fb299c750595e9c145f1ffa9e7c11b4687b9ae124c2516f"
       define_method(:install) do
         bin.install "hcb"
         bin.install "hcb-mcp"
       end
     end
     if Hardware::CPU.arm? && Hardware::CPU.is_64_bit?
-      url "https://github.com/hackclub/hcb-cli-and-mcp/releases/download/v0.1.3/hcb_0.1.3_linux_arm64.tar.gz"
-      sha256 "2cced6190339424f67dc7d0f64b2a80f8dc36a48b459e6ff2a909fadad926e14"
+      url "https://github.com/hackclub/hcb-cli-and-mcp/releases/download/v0.1.4/hcb_0.1.4_linux_arm64.tar.gz"
+      sha256 "2ceb2ee5627aaf4631b9509e976708b1cb5121ca681aa89134bb8238e993c0c6"
       define_method(:install) do
         bin.install "hcb"
         bin.install "hcb-mcp"
