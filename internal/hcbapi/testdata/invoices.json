@@ -1,0 +1,28 @@
+[
+  {
+    "id": "inv_xa56336",
+    "object": "invoice",
+    "status": "Deposited",
+    "to": "Example Name",
+    "amount_due": 3117,
+    "memo": "Example memo",
+    "due_date": "2026-07-18T15:54:27.000Z",
+    "item_amount": 3117,
+    "item_description": "Example memo",
+    "sponsor_id": 5881,
+    "created_at": "2026-06-18T15:54:27.436Z"
+  },
+  {
+    "id": "inv_x397fcc",
+    "object": "invoice",
+    "status": "Deposited",
+    "to": "Example Name",
+    "amount_due": 1940,
+    "memo": "Example memo",
+    "due_date": "2026-07-17T00:00:00.000Z",
+    "item_amount": 1940,
+    "item_description": "Example memo",
+    "sponsor_id": 5877,
+    "created_at": "2026-06-17T19:03:10.408Z"
+  }
+]

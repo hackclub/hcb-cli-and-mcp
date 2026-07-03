@@ -1,0 +1,20 @@
+{
+  "followers": [
+    {
+      "id": "usr_xe98a8b",
+      "object": "user",
+      "avatar": "https://hcb.example.com/files/example-avatar.png",
+      "admin": false,
+      "auditor": false,
+      "name": "Example Name"
+    },
+    {
+      "id": "usr_x7b7043",
+      "object": "user",
+      "avatar": "https://hcb.example.com/files/example-avatar.png",
+      "admin": true,
+      "auditor": true,
+      "name": "Example Name"
+    }
+  ]
+}

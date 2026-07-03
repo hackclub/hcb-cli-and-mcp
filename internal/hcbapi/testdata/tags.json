@@ -1,0 +1,18 @@
+[
+  {
+    "id": "tag_xe8ebeb",
+    "object": "tag",
+    "label": "Rent",
+    "color": "cyan",
+    "emoji": "\ud83c\udfe1",
+    "created_at": "2025-09-26T17:59:45.959Z"
+  },
+  {
+    "id": "tag_x10697f",
+    "object": "tag",
+    "label": "Fees",
+    "color": "green",
+    "emoji": "\ud83c\udfe6",
+    "created_at": "2025-08-06T11:02:59.886Z"
+  }
+]

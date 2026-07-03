@@ -1,0 +1,20 @@
+[
+  {
+    "id": "rct_xcb4873",
+    "object": "receipt",
+    "url": "https://hcb.example.com/files/example-url.pdf",
+    "preview_url": "https://hcb.example.com/files/example-preview_url.png",
+    "filename": "example-receipt.pdf",
+    "uploader": {
+      "id": "usr_x2ba4e6",
+      "object": "user",
+      "avatar": "https://hcb.example.com/files/example-avatar.png",
+      "admin": true,
+      "auditor": true,
+      "name": "Example Name",
+      "email": "user@example.com",
+      "birthday": "2000-01-01"
+    },
+    "created_at": "2026-06-14T15:00:07.743Z"
+  }
+]

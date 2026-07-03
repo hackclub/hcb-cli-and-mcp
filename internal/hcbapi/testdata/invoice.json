@@ -1,0 +1,13 @@
+{
+  "id": "inv_xa56336",
+  "object": "invoice",
+  "status": "Deposited",
+  "to": "Example Name",
+  "amount_due": 3117,
+  "memo": "Example memo",
+  "due_date": "2026-07-18T15:54:27.000Z",
+  "item_amount": 3117,
+  "item_description": "Example memo",
+  "sponsor_id": 5881,
+  "created_at": "2026-06-18T15:54:27.436Z"
+}

@@ -1,0 +1,26 @@
+{
+  "id": "usr_x2ba4e6",
+  "object": "user",
+  "avatar": "https://hcb.example.com/files/example-avatar.png",
+  "admin": true,
+  "auditor": true,
+  "name": "Example Name",
+  "email": "user@example.com",
+  "birthday": "2000-01-01",
+  "shipping_address": {
+    "address_line1": "1 Example St",
+    "address_line2": null,
+    "city": "Exampleville",
+    "state": "VT",
+    "country": "US",
+    "postal_code": "05401"
+  },
+  "billing_address": {
+    "address_line1": "1 Example St",
+    "address_line2": null,
+    "city": "Exampleville",
+    "state": "VT",
+    "country": "US",
+    "postal_code": "05401"
+  }
+}

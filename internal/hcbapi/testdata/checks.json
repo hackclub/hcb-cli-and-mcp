@@ -1,0 +1,52 @@
+[
+  {
+    "id": "ick_xe3ab4a",
+    "object": "increase_check",
+    "address_city": "Exampleville",
+    "address_line1": "1 Example St",
+    "address_line2": "",
+    "address_state": "VT",
+    "address_zip": "05401",
+    "recipient_email": "user@example.com",
+    "check_number": "1108",
+    "status": "issued",
+    "recipient_name": "Example Name",
+    "memo": "Example memo",
+    "payment_for": "Example memo",
+    "sender": {
+      "id": "usr_x7795b7",
+      "object": "user",
+      "avatar": "https://hcb.example.com/files/example-avatar.png",
+      "admin": false,
+      "auditor": false,
+      "name": "Example Name"
+    },
+    "created_at": "2026-07-02T19:58:09.552Z"
+  },
+  {
+    "id": "ick_xf1095c",
+    "object": "increase_check",
+    "address_city": "Exampleville",
+    "address_line1": "1 Example St",
+    "address_line2": "",
+    "address_state": "VT",
+    "address_zip": "05401",
+    "recipient_email": "user@example.com",
+    "check_number": "1107",
+    "status": "issued",
+    "recipient_name": "Example Name",
+    "memo": "Example memo",
+    "payment_for": "Example memo",
+    "sender": {
+      "id": "usr_x2ba4e6",
+      "object": "user",
+      "avatar": "https://hcb.example.com/files/example-avatar.png",
+      "admin": true,
+      "auditor": true,
+      "name": "Example Name",
+      "email": "user@example.com",
+      "birthday": "2000-01-01"
+    },
+    "created_at": "2026-07-02T07:13:52.046Z"
+  }
+]

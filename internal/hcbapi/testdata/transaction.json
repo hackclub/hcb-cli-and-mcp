@@ -1,0 +1,80 @@
+{
+  "id": "txn_x20af76",
+  "object": "transaction",
+  "date": "2026-07-03",
+  "amount_cents": -1543,
+  "memo": "Example memo",
+  "has_custom_memo": false,
+  "pending": true,
+  "declined": false,
+  "reversed": false,
+  "tags": [],
+  "code": "600",
+  "missing_receipt": true,
+  "lost_receipt": false,
+  "card_charge": {
+    "merchant": {
+      "name": "Example Name",
+      "smart_name": "Example Name",
+      "country": "CA",
+      "network_id": "BHF6E5ONJSHHWZT"
+    },
+    "charge_method": "online",
+    "spent_at": "2026-07-03T00:51:33.000Z",
+    "wallet": null,
+    "card": {
+      "id": "crd_x13a0ef",
+      "object": "stripe_card",
+      "type": "virtual",
+      "status": "active",
+      "name": "Example Name",
+      "last4": "1234",
+      "exp_month": 5,
+      "exp_year": 2028,
+      "organization": {
+        "id": "org_x290a10",
+        "object": "organization",
+        "parent_id": null,
+        "name": "Hack Club HQ",
+        "country": "US",
+        "slug": "hq",
+        "financially_frozen": false,
+        "icon": "https://hcb.example.com/files/example-icon.png",
+        "donation_page_available": true,
+        "playground_mode": false,
+        "playground_mode_meeting_requested": null,
+        "transparent": true,
+        "fee_percentage": 0.0,
+        "background_image": "https://hcb.example.com/files/example-background_image.png",
+        "created_at": "2019-05-16T12:52:11.747Z"
+      },
+      "user": {
+        "id": "usr_xab3644",
+        "object": "user",
+        "avatar": "https://hcb.example.com/files/example-avatar.png",
+        "admin": true,
+        "auditor": true,
+        "name": "Example Name"
+      },
+      "last_frozen_by_id": "usr_xfbfbc9",
+      "created_at": "2025-06-20T15:43:08.530Z"
+    }
+  },
+  "organization": {
+    "id": "org_x290a10",
+    "object": "organization",
+    "parent_id": null,
+    "name": "Hack Club HQ",
+    "country": "US",
+    "slug": "hq",
+    "financially_frozen": false,
+    "icon": "https://hcb.example.com/files/example-icon.png",
+    "donation_page_available": true,
+    "playground_mode": false,
+    "playground_mode_meeting_requested": null,
+    "transparent": true,
+    "fee_percentage": 0.0,
+    "background_image": "https://hcb.example.com/files/example-background_image.png",
+    "created_at": "2019-05-16T12:52:11.747Z"
+  }
+}

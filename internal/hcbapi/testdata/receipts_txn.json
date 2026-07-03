@@ -1,0 +1,11 @@
+[
+  {
+    "id": "rct_xf440ca",
+    "object": "receipt",
+    "url": "https://hcb.example.com/files/example-url.pdf",
+    "preview_url": "https://hcb.example.com/files/example-preview_url.png",
+    "filename": "example-receipt.pdf",
+    "uploader": null,
+    "created_at": "2026-07-02T19:03:16.137Z"
+  }
+]

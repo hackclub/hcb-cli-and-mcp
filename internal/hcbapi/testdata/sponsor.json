@@ -1,0 +1,16 @@
+{
+  "id": "spr_x4a27f8",
+  "object": "sponsor",
+  "address_city": "Exampleville",
+  "address_country": "US",
+  "address_line1": "1 Example St",
+  "address_line2": null,
+  "address_postal_code": "05401",
+  "address_state": "VT",
+  "contact_email": "user@example.com",
+  "name": "Example Name",
+  "slug": "example-org",
+  "event_id": 183,
+  "stripe_customer_id": "cus_xc2d848",
+  "created_at": "2026-06-18T15:54:27.144Z"
+}

@@ -1,0 +1,40 @@
+[
+  {
+    "id": "cdp_x72d849",
+    "object": "check_deposit",
+    "status": "submitted",
+    "amount_cents": 2500000,
+    "updated_at": "2026-07-02T17:46:40.696Z",
+    "estimated_arrival_date": "2026-07-09",
+    "front_url": "https://hcb.example.com/files/example-front_url.png",
+    "back_url": "https://hcb.example.com/files/example-back_url.png",
+    "submitter": {
+      "id": "usr_xab3644",
+      "object": "user",
+      "avatar": "https://hcb.example.com/files/example-avatar.png",
+      "admin": true,
+      "auditor": true,
+      "name": "Example Name"
+    },
+    "created_at": "2026-07-02T17:46:33.713Z"
+  },
+  {
+    "id": "cdp_xb60f94",
+    "object": "check_deposit",
+    "status": "deposited",
+    "amount_cents": 20000,
+    "updated_at": "2026-07-02T19:15:03.336Z",
+    "estimated_arrival_date": "2026-07-03",
+    "front_url": "https://hcb.example.com/files/example-front_url.png",
+    "back_url": "https://hcb.example.com/files/example-back_url.png",
+    "submitter": {
+      "id": "usr_xab3644",
+      "object": "user",
+      "avatar": "https://hcb.example.com/files/example-avatar.png",
+      "admin": true,
+      "auditor": true,
+      "name": "Example Name"
+    },
+    "created_at": "2026-06-26T12:55:04.407Z"
+  }
+]

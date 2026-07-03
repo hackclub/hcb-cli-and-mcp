@@ -1,0 +1,20 @@
+[
+  {
+    "id": 311,
+    "name": "Example Name",
+    "color": null,
+    "status": "active",
+    "unlisted": false,
+    "common": true,
+    "logo_url": "https://hcb.example.com/files/example-logo_url.png"
+  },
+  {
+    "id": 5516,
+    "name": "Example Name",
+    "color": null,
+    "status": "active",
+    "unlisted": false,
+    "common": true,
+    "logo_url": "https://hcb.example.com/files/example-logo_url.png"
+  }
+]

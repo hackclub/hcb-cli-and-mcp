@@ -1,0 +1,46 @@
+[
+  {
+    "id": "crd_x92d92c",
+    "object": "stripe_card",
+    "type": "virtual",
+    "status": "active",
+    "name": null,
+    "last4": "1234",
+    "exp_month": 3,
+    "exp_year": 2029,
+    "total_spent_cents": 0,
+    "organization_id": "org_x290a10",
+    "user": {
+      "id": "usr_xf1c4be",
+      "object": "user",
+      "avatar": "https://hcb.example.com/files/example-avatar.png",
+      "admin": false,
+      "auditor": false,
+      "name": "Example Name"
+    },
+    "last_frozen_by_id": null,
+    "created_at": "2026-06-27T21:18:00.144Z"
+  },
+  {
+    "id": "crd_xed7fc0",
+    "object": "stripe_card",
+    "type": "virtual",
+    "status": "active",
+    "name": null,
+    "last4": "1234",
+    "exp_month": 7,
+    "exp_year": 2029,
+    "total_spent_cents": 18492,
+    "organization_id": "org_x290a10",
+    "user": {
+      "id": "usr_xe98a8b",
+      "object": "user",
+      "avatar": "https://hcb.example.com/files/example-avatar.png",
+      "admin": false,
+      "auditor": false,
+      "name": "Example Name"
+    },
+    "last_frozen_by_id": null,
+    "created_at": "2026-06-25T21:17:53.877Z"
+  }
+]

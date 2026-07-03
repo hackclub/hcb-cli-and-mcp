@@ -1,0 +1,48 @@
+{
+  "id": "org_x290a10",
+  "object": "organization",
+  "parent_id": null,
+  "name": "Hack Club HQ",
+  "country": "US",
+  "slug": "hq",
+  "financially_frozen": false,
+  "icon": "https://hcb.example.com/files/example-icon.png",
+  "donation_page_available": true,
+  "playground_mode": false,
+  "playground_mode_meeting_requested": null,
+  "transparent": true,
+  "fee_percentage": 0.0,
+  "background_image": "https://hcb.example.com/files/example-background_image.png",
+  "balance_cents": 407625297,
+  "fee_balance_cents": 0,
+  "total_spent_cents": 4374497354,
+  "total_raised_cents": 4782122651,
+  "account_number": "REDACTED",
+  "routing_number": "REDACTED",
+  "swift_bic_code": "REDACTED",
+  "users": [
+    {
+      "id": "usr_x8c1530",
+      "object": "user",
+      "avatar": "https://hcb.example.com/files/example-avatar.png",
+      "admin": false,
+      "auditor": false,
+      "name": "Example Name",
+      "email": "user@example.com",
+      "joined_at": "2026-06-02T18:19:17.265Z",
+      "role": "member"
+    },
+    {
+      "id": "usr_x36fdb8",
+      "object": "user",
+      "avatar": "https://hcb.example.com/files/example-avatar.png",
+      "admin": false,
+      "auditor": false,
+      "name": "Example Name",
+      "email": "user@example.com",
+      "joined_at": "2026-03-20T16:09:24.480Z",
+      "role": "member"
+    }
+  ],
+  "created_at": "2019-05-16T12:52:11.747Z"
+}
