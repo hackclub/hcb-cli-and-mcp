@@ -118,8 +118,12 @@ func (c *Client) refreshLocked(ctx context.Context) error {
 		"client_id":     {c.creds.ClientID},
 		"client_secret": {c.creds.ClientSecret},
 	}
+	tokenURL := c.creds.BaseURL + "/api/v4/oauth/token"
+	if c.creds.TokenURL != "" {
+		tokenURL = c.creds.TokenURL // AuthServer login: bridge injects the secret
+	}
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost,
-		c.creds.BaseURL+"/api/v4/oauth/token", strings.NewReader(form.Encode()))
+		tokenURL, strings.NewReader(form.Encode()))
 	if err != nil {
 		return err
 	}

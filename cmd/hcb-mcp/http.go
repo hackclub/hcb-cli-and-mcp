@@ -85,13 +85,20 @@ func writeJSON(w http.ResponseWriter, status int, v any) {
 //	/healthz                                    unauthenticated liveness
 //	/.well-known/oauth-protected-resource       MCP OAuth discovery (RFC 9728)
 //	/.well-known/oauth-authorization-server     AS metadata (RFC 8414) — issuer is
-//	                                            this host; authorize goes straight
-//	                                            to HCB, token/register are bridged
+//	                                            this host; see oauth.go for the
+//	                                            sub-authorization-server design
+//	/oauth/authorize                            sub-AS authorize: any client
+//	                                            redirect_uri, bounces through HCB
+//	/oauth/callback                             the ONE redirect URI registered
+//	                                            on the HCB OAuth app
 //	/oauth/register                             dynamic client registration stub
-//	/oauth/token                                token proxy injecting the client secret
+//	/oauth/token                                redeems sub-AS codes (PKCE), else
+//	                                            proxies upstream injecting the
+//	                                            client secret
 //	/mcp                                        the MCP endpoint (per-request auth)
 func httpHandler(cfg httpConfig) http.Handler {
 	mux := http.NewServeMux()
+	bridge := newAuthBridge()
 
 	mux.HandleFunc("/healthz", func(w http.ResponseWriter, r *http.Request) {
 		w.Write([]byte("ok"))
@@ -116,7 +123,7 @@ func httpHandler(cfg httpConfig) http.Handler {
 		o := origin(r)
 		writeJSON(w, http.StatusOK, map[string]any{
 			"issuer":                                o,
-			"authorization_endpoint":                cfg.hcbBaseURL + "/api/v4/oauth/authorize",
+			"authorization_endpoint":                o + "/oauth/authorize",
 			"token_endpoint":                        o + "/oauth/token",
 			"registration_endpoint":                 o + "/oauth/register",
 			"response_types_supported":              []string{"code"},
@@ -153,8 +160,14 @@ func httpHandler(cfg httpConfig) http.Handler {
 		})
 	})
 
-	// Token proxy: forwards the exchange to HCB, injecting the confidential
-	// client's credentials so they never leave the server.
+	// Sub-AS legs of the authorization-code flow (see oauth.go).
+	mux.HandleFunc("/oauth/authorize", bridge.handleAuthorize(cfg))
+	mux.HandleFunc("/oauth/callback", bridge.handleCallback(cfg))
+
+	// Token endpoint: codes minted by the sub-AS are redeemed locally (PKCE);
+	// anything else — refresh grants, legacy direct-to-HCB codes — is
+	// forwarded to HCB with the confidential client's credentials injected so
+	// they never leave the server.
 	mux.HandleFunc("/oauth/token", func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodPost || cfg.oauthClientID == "" {
 			http.NotFound(w, r)
@@ -163,6 +176,19 @@ func httpHandler(cfg httpConfig) http.Handler {
 		if err := r.ParseForm(); err != nil {
 			writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid_request"})
 			return
+		}
+		if r.PostForm.Get("grant_type") == "authorization_code" {
+			tokenJSON, ok, errCode := bridge.redeem(
+				r.PostForm.Get("code"), r.PostForm.Get("code_verifier"), r.PostForm.Get("redirect_uri"))
+			if ok {
+				if errCode != "" {
+					writeJSON(w, http.StatusBadRequest, map[string]string{"error": errCode})
+					return
+				}
+				w.Header().Set("Content-Type", "application/json")
+				w.Write(tokenJSON)
+				return
+			}
 		}
 		form := url.Values{}
 		for k, vs := range r.PostForm {

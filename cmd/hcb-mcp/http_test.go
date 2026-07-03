@@ -128,7 +128,7 @@ func TestWellKnownDocuments(t *testing.T) {
 
 	var asm map[string]any
 	getJSON(t, srv.URL+"/.well-known/oauth-authorization-server", &asm)
-	if asm["authorization_endpoint"] != "https://hcb.example/api/v4/oauth/authorize" {
+	if asm["authorization_endpoint"] != srv.URL+"/oauth/authorize" {
 		t.Errorf("authorization_endpoint = %v", asm["authorization_endpoint"])
 	}
 	if asm["token_endpoint"] != srv.URL+"/oauth/token" {

@@ -112,14 +112,20 @@ func runPage(fn func() (*hcbapi.Page, error)) error {
 
 // --- auth ---
 
+// defaultAuthServer is the hosted HCB MCP server; its OAuth bridge brokers
+// browser logins so the CLI needs no client id or secret of its own.
+const defaultAuthServer = "https://hcb-mcp.k.hackclub.dev"
+
 func loginCmd() *cobra.Command {
-	var clientID, clientSecret, baseURL, scope string
+	var clientID, clientSecret, baseURL, scope, authServer string
 	cmd := &cobra.Command{
 		Use:   "login",
 		Short: "Authorize via browser (authorization-code flow with localhost callback)",
-		Long: "Runs the OAuth authorization-code flow: starts a localhost:8910 listener,\n" +
-			"opens the HCB authorize page, and stores tokens in the credentials file.\n" +
-			"Defaults for client id/secret are reused from an existing credentials file.",
+		Long: "Runs the OAuth authorization-code flow in your browser and stores tokens\n" +
+			"in the credentials file. With no flags the hosted HCB MCP server brokers\n" +
+			"the flow — no client id or secret needed. Pass --client-id (and usually\n" +
+			"--client-secret) to use your own HCB OAuth app directly; that app must\n" +
+			"register http://localhost:8910/callback as a redirect URI.",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			path := credsPath
 			if path == "" {
@@ -129,13 +135,15 @@ func loginCmd() *cobra.Command {
 					return err
 				}
 			}
-			// reuse existing client config when flags are omitted
+			// Reuse a previous direct-flow client config when flags are
+			// omitted. Bridge-flow credentials hold no local secret and
+			// don't pin the next login to a client.
 			if existing, err := hcbapi.LoadCredentials(path); err == nil {
-				if clientID == "" {
+				if clientID == "" && existing.ClientSecret != "" {
 					clientID = existing.ClientID
-				}
-				if clientSecret == "" {
-					clientSecret = existing.ClientSecret
+					if clientSecret == "" {
+						clientSecret = existing.ClientSecret
+					}
 				}
 				if baseURL == "" {
 					baseURL = existing.BaseURL
@@ -144,14 +152,18 @@ func loginCmd() *cobra.Command {
 			if baseURL == "" {
 				baseURL = "https://hcb.hackclub.com"
 			}
+			cfg := hcbapi.LoginConfig{
+				BaseURL: baseURL, ClientID: clientID, ClientSecret: clientSecret, Scope: scope,
+			}
 			if clientID == "" {
-				return fmt.Errorf("--client-id is required (no existing credentials to reuse)")
+				// Zero-config path: the hosted bridge runs the flow, holds
+				// the client secret, and accepts any localhost port.
+				cfg.AuthServer = authServer
+				cfg.ClientID = "hcb-cli"
 			}
 			loginCtx, cancel := context.WithTimeout(ctx(), 10*time.Minute)
 			defer cancel()
-			creds, err := hcbapi.Login(loginCtx, hcbapi.LoginConfig{
-				BaseURL: baseURL, ClientID: clientID, ClientSecret: clientSecret, Scope: scope,
-			}, os.Stderr)
+			creds, err := hcbapi.Login(loginCtx, cfg, os.Stderr)
 			if err != nil {
 				return err
 			}
@@ -162,10 +174,11 @@ func loginCmd() *cobra.Command {
 			return nil
 		},
 	}
-	cmd.Flags().StringVar(&clientID, "client-id", "", "OAuth application UID")
+	cmd.Flags().StringVar(&clientID, "client-id", "", "OAuth application UID (omit to use the hosted auth server)")
 	cmd.Flags().StringVar(&clientSecret, "client-secret", "", "OAuth application secret (confidential apps)")
 	cmd.Flags().StringVar(&baseURL, "base-url", "", "HCB base URL (default https://hcb.hackclub.com)")
 	cmd.Flags().StringVar(&scope, "scope", "read", "OAuth scopes to request")
+	cmd.Flags().StringVar(&authServer, "auth-server", defaultAuthServer, "hosted OAuth bridge used when no --client-id is given")
 	return cmd
 }
 

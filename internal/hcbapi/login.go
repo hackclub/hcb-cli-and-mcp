@@ -3,6 +3,8 @@ package hcbapi
 import (
 	"context"
 	"crypto/rand"
+	"crypto/sha256"
+	"encoding/base64"
 	"encoding/hex"
 	"encoding/json"
 	"errors"
@@ -25,8 +27,16 @@ type LoginConfig struct {
 	ClientID     string
 	ClientSecret string
 	Scope        string
-	// ListenAddr for the local callback server. Default 127.0.0.1:8910 — the
-	// port must match the OAuth app's registered redirect URI.
+	// AuthServer, when set, brokers the flow through the hosted bridge's
+	// sub-authorization-server (<AuthServer>/oauth/authorize + /oauth/token)
+	// instead of talking to HCB directly. The bridge holds the client secret
+	// and accepts any localhost callback port, so no local client config is
+	// needed; token refreshes route through the bridge too (via
+	// Credentials.TokenURL). PKCE (S256) binds the code to this process.
+	AuthServer string
+	// ListenAddr for the local callback server. Direct flow default is
+	// 127.0.0.1:8910 (the port registered on the OAuth app); the AuthServer
+	// flow defaults to an ephemeral port since any port is accepted.
 	ListenAddr string
 	// OpenBrowser opens the authorize URL; nil uses the OS default browser.
 	OpenBrowser func(url string) error
@@ -36,8 +46,19 @@ type LoginConfig struct {
 // listener, sends the user to the authorize page, exchanges the returned code,
 // and returns credentials ready to Save. Progress is written to out.
 func Login(ctx context.Context, cfg LoginConfig, out io.Writer) (*Credentials, error) {
+	cfg.AuthServer = strings.TrimSuffix(cfg.AuthServer, "/")
+	authorizeEndpoint := cfg.BaseURL + "/api/v4/oauth/authorize"
+	tokenEndpoint := cfg.BaseURL + "/api/v4/oauth/token"
+	if cfg.AuthServer != "" {
+		authorizeEndpoint = cfg.AuthServer + "/oauth/authorize"
+		tokenEndpoint = cfg.AuthServer + "/oauth/token"
+	}
 	if cfg.ListenAddr == "" {
-		cfg.ListenAddr = "127.0.0.1:8910"
+		if cfg.AuthServer != "" {
+			cfg.ListenAddr = "127.0.0.1:0"
+		} else {
+			cfg.ListenAddr = "127.0.0.1:8910"
+		}
 	}
 	if cfg.OpenBrowser == nil {
 		cfg.OpenBrowser = openBrowser
@@ -59,13 +80,25 @@ func Login(ctx context.Context, cfg LoginConfig, out io.Writer) (*Credentials, e
 	}
 	state := hex.EncodeToString(stateBytes)
 
-	authURL := cfg.BaseURL + "/api/v4/oauth/authorize?" + url.Values{
+	authQuery := url.Values{
 		"client_id":     {cfg.ClientID},
 		"redirect_uri":  {redirectURI},
 		"response_type": {"code"},
 		"scope":         {cfg.Scope},
 		"state":         {state},
-	}.Encode()
+	}
+	var pkceVerifier string
+	if cfg.AuthServer != "" {
+		verifierBytes := make([]byte, 32)
+		if _, err := rand.Read(verifierBytes); err != nil {
+			return nil, err
+		}
+		pkceVerifier = base64.RawURLEncoding.EncodeToString(verifierBytes)
+		sum := sha256.Sum256([]byte(pkceVerifier))
+		authQuery.Set("code_challenge", base64.RawURLEncoding.EncodeToString(sum[:]))
+		authQuery.Set("code_challenge_method", "S256")
+	}
+	authURL := authorizeEndpoint + "?" + authQuery.Encode()
 
 	type callback struct {
 		code string
@@ -112,14 +145,19 @@ func Login(ctx context.Context, cfg LoginConfig, out io.Writer) (*Credentials, e
 	}
 
 	form := url.Values{
-		"grant_type":    {"authorization_code"},
-		"code":          {cb.code},
-		"client_id":     {cfg.ClientID},
-		"client_secret": {cfg.ClientSecret},
-		"redirect_uri":  {redirectURI},
+		"grant_type":   {"authorization_code"},
+		"code":         {cb.code},
+		"client_id":    {cfg.ClientID},
+		"redirect_uri": {redirectURI},
+	}
+	if pkceVerifier != "" {
+		form.Set("code_verifier", pkceVerifier)
+	}
+	if cfg.ClientSecret != "" {
+		form.Set("client_secret", cfg.ClientSecret)
 	}
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost,
-		cfg.BaseURL+"/api/v4/oauth/token", strings.NewReader(form.Encode()))
+		tokenEndpoint, strings.NewReader(form.Encode()))
 	if err != nil {
 		return nil, err
 	}
@@ -144,7 +182,7 @@ func Login(ctx context.Context, cfg LoginConfig, out io.Writer) (*Credentials, e
 		return nil, fmt.Errorf("parsing token response: %w", err)
 	}
 
-	return &Credentials{
+	creds := &Credentials{
 		BaseURL:      cfg.BaseURL,
 		ClientID:     cfg.ClientID,
 		ClientSecret: cfg.ClientSecret,
@@ -153,7 +191,11 @@ func Login(ctx context.Context, cfg LoginConfig, out io.Writer) (*Credentials, e
 		Scope:        tok.Scope,
 		CreatedAt:    tok.CreatedAt,
 		ExpiresIn:    tok.ExpiresIn,
-	}, nil
+	}
+	if cfg.AuthServer != "" {
+		creds.TokenURL = cfg.AuthServer + "/oauth/token"
+	}
+	return creds, nil
 }
 
 func openBrowser(u string) error {

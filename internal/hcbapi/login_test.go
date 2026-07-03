@@ -2,6 +2,8 @@ package hcbapi
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/base64"
 	"fmt"
 	"io"
 	"net/http"
@@ -97,6 +99,85 @@ func TestLogin(t *testing.T) {
 	if tokenForm.Get("grant_type") != "authorization_code" || tokenForm.Get("code") != "authcode123" ||
 		tokenForm.Get("redirect_uri") != redirect {
 		t.Errorf("token exchange form = %v", tokenForm)
+	}
+}
+
+// The AuthServer flow: authorize + token go to the hosted bridge, PKCE is
+// used instead of a client secret, and refreshes are pointed at the bridge.
+func TestLoginViaAuthServer(t *testing.T) {
+	var tokenForm url.Values
+	bridge := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/oauth/token" {
+			t.Errorf("unexpected bridge path %s", r.URL.Path)
+			http.NotFound(w, r)
+			return
+		}
+		r.ParseForm()
+		tokenForm = r.Form
+		w.Header().Set("Content-Type", "application/json")
+		fmt.Fprint(w, `{"access_token":"hcb_new","refresh_token":"ref_new","scope":"read","created_at":1751500000,"expires_in":7200}`)
+	}))
+	defer bridge.Close()
+
+	browserURL := make(chan string, 1)
+	cfg := LoginConfig{
+		BaseURL:     "https://hcb.example",
+		ClientID:    "hcb-cli",
+		Scope:       "read",
+		AuthServer:  bridge.URL,
+		OpenBrowser: func(u string) error { browserURL <- u; return nil },
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	type result struct {
+		creds *Credentials
+		err   error
+	}
+	done := make(chan result, 1)
+	go func() {
+		creds, err := Login(ctx, cfg, io.Discard)
+		done <- result{creds, err}
+	}()
+
+	u, err := url.Parse(<-browserURL)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.HasPrefix(u.String(), bridge.URL+"/oauth/authorize") {
+		t.Errorf("authorize URL = %s, want bridge", u)
+	}
+	q := u.Query()
+	challenge := q.Get("code_challenge")
+	if challenge == "" || q.Get("code_challenge_method") != "S256" {
+		t.Errorf("PKCE missing from authorize URL: %v", q)
+	}
+
+	redirect := q.Get("redirect_uri")
+	resp, err := http.Get(redirect + "?code=bridgecode&state=" + url.QueryEscape(q.Get("state")))
+	if err != nil {
+		t.Fatal(err)
+	}
+	resp.Body.Close()
+
+	res := <-done
+	if res.err != nil {
+		t.Fatalf("Login: %v", res.err)
+	}
+	if res.creds.TokenURL != bridge.URL+"/oauth/token" {
+		t.Errorf("TokenURL = %q", res.creds.TokenURL)
+	}
+	if res.creds.BaseURL != "https://hcb.example" || res.creds.ClientSecret != "" {
+		t.Errorf("creds = %+v", res.creds)
+	}
+	verifier := tokenForm.Get("code_verifier")
+	sum := sha256.Sum256([]byte(verifier))
+	if verifier == "" || base64.RawURLEncoding.EncodeToString(sum[:]) != challenge {
+		t.Errorf("code_verifier %q does not match challenge %q", verifier, challenge)
+	}
+	if _, hasSecret := tokenForm["client_secret"]; hasSecret {
+		t.Error("client_secret must not be sent in the bridge flow")
 	}
 }
 

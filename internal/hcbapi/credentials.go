@@ -13,6 +13,10 @@ type Credentials struct {
 	BaseURL      string `json:"base_url"`
 	ClientID     string `json:"client_id"`
 	ClientSecret string `json:"client_secret"`
+	// TokenURL overrides BaseURL+/api/v4/oauth/token for refresh grants.
+	// Set by AuthServer logins, where the hosted bridge holds the client
+	// secret and proxies the exchange to HCB.
+	TokenURL     string `json:"token_url,omitempty"`
 	AccessToken  string `json:"access_token"`
 	RefreshToken string `json:"refresh_token"`
 	Scope        string `json:"scope,omitempty"`

@@ -147,6 +147,42 @@ func TestRefreshOn401AndRotation(t *testing.T) {
 	}
 }
 
+// Credentials with a TokenURL (bridge-brokered logins) must refresh through
+// that URL, not BaseURL — the bridge injects the client secret server-side.
+func TestRefreshHonorsTokenURL(t *testing.T) {
+	var bridgeCalls atomic.Int32
+	bridge := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		bridgeCalls.Add(1)
+		if r.URL.Path != "/oauth/token" {
+			t.Errorf("bridge path = %s", r.URL.Path)
+		}
+		w.Write([]byte(`{"access_token":"hcb_new","refresh_token":"ref_2","created_at":2000,"expires_in":7200}`))
+	}))
+	defer bridge.Close()
+
+	mux := http.NewServeMux()
+	mux.HandleFunc("/api/v4/user", func(w http.ResponseWriter, r *http.Request) {
+		w.Write([]byte(`{}`))
+	})
+	mux.HandleFunc("/api/v4/oauth/token", func(w http.ResponseWriter, r *http.Request) {
+		t.Error("refresh must go to TokenURL, not the API base")
+	})
+	srv := httptest.NewServer(mux)
+	defer srv.Close()
+
+	creds := &Credentials{
+		AccessToken: "hcb_old", RefreshToken: "ref_1", ClientID: "hcb-cli",
+		TokenURL: bridge.URL + "/oauth/token", CreatedAt: 1, ExpiresIn: 10,
+	}
+	c := newTestClient(t, srv, creds)
+	if _, err := c.Get(context.Background(), "/api/v4/user", nil); err != nil {
+		t.Fatalf("Get: %v", err)
+	}
+	if bridgeCalls.Load() != 1 {
+		t.Errorf("bridge refreshes = %d, want 1", bridgeCalls.Load())
+	}
+}
+
 // A proactively-expired token refreshes before the first API call.
 func TestProactiveRefresh(t *testing.T) {
 	mux := http.NewServeMux()
