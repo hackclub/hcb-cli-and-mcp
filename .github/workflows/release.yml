@@ -1,14 +1,25 @@
 name: Release
 
+# Every push to main cuts a new patch release automatically (the workflow tags
+# it and GoReleaser publishes binaries + the Homebrew formula). Pushing a
+# v* tag manually still works, for minor/major bumps.
 on:
   push:
+    branches: [main]
     tags: ["v*"]
 
 permissions:
   contents: write
 
+concurrency:
+  group: release
+
 jobs:
   goreleaser:
+    # GoReleaser commits the regenerated formula back to main after each
+    # release; without this guard that commit would trigger another release,
+    # forever.
+    if: "!startsWith(github.event.head_commit.message, 'Brew formula update')"
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -18,6 +29,18 @@ jobs:
         with:
           go-version: stable
       - run: go test ./...
+      - name: Tag next patch release
+        if: github.ref == 'refs/heads/main'
+        run: |
+          git config user.name "hcb-release-bot"
+          git config user.email "noreply@hackclub.com"
+          LATEST=$(git tag -l 'v*' --sort=-v:refname | head -1)
+          LATEST=${LATEST:-v0.0.0}
+          IFS=. read -r MA MI PA <<< "${LATEST#v}"
+          NEXT="v$MA.$MI.$((PA+1))"
+          echo "Tagging $NEXT (previous: $LATEST)"
+          git tag "$NEXT"
+          git push origin "$NEXT"
       - uses: goreleaser/goreleaser-action@v6
         with:
           distribution: goreleaser
