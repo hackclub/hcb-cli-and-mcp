@@ -24,7 +24,7 @@ var (
 
 const (
 	releaseAPI  = "https://api.github.com/repos/hackclub/hcb-cli-and-mcp/releases/latest"
-	brewFormula = "hackclub/hcb/hcb" // tap: brew tap hackclub/hcb https://github.com/hackclub/hcb-cli-and-mcp
+	brewFormula = "hackclub/hcb-cli-and-mcp/hcb" // tap: brew tap hackclub/hcb-cli-and-mcp https://github.com/hackclub/hcb-cli-and-mcp
 )
 
 func versionCmd() *cobra.Command {
@@ -51,7 +51,7 @@ func upgradeCmd() *cobra.Command {
 			if !brewManaged(resolvePath(exe)) {
 				fmt.Fprintln(os.Stderr, "hcb was not installed with Homebrew, so it can't self-update.")
 				fmt.Fprintln(os.Stderr, "Install via brew to enable updates:")
-				fmt.Fprintln(os.Stderr, "  brew tap hackclub/hcb https://github.com/hackclub/hcb-cli-and-mcp")
+				fmt.Fprintln(os.Stderr, "  brew tap hackclub/hcb-cli-and-mcp https://github.com/hackclub/hcb-cli-and-mcp")
 				fmt.Fprintln(os.Stderr, "  brew install hcb")
 				return nil
 			}

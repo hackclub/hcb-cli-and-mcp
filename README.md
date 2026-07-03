@@ -17,7 +17,7 @@ cmd/hcb-mcp       MCP server (official modelcontextprotocol/go-sdk): stdio, or H
 With [Homebrew](https://brew.sh) (macOS and Linux):
 
 ```sh
-brew tap hackclub/hcb https://github.com/hackclub/hcb-cli-and-mcp
+brew tap hackclub/hcb-cli-and-mcp https://github.com/hackclub/hcb-cli-and-mcp
 brew install hcb
 ```
 
@@ -44,7 +44,7 @@ checks the latest GitHub release in a detached background process and, if
 newer, runs `brew upgrade` for you — you'll see a one-line notice on the next
 run. It never delays the command you actually typed.
 
-- Update manually: `hcb upgrade` (or `brew upgrade hackclub/hcb/hcb`)
+- Update manually: `hcb upgrade` (or `brew upgrade hackclub/hcb-cli-and-mcp/hcb`)
 - Check what you're running: `hcb version`
 - Opt out of automatic updates: `export HCB_NO_AUTO_UPDATE=1`
 

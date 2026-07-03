@@ -41,7 +41,7 @@ release:
 
 # The Homebrew formula lives in THIS repo (self-tap), so releases need no
 # extra secrets. Users:
-#   brew tap hackclub/hcb https://github.com/hackclub/hcb-cli-and-mcp
+#   brew tap hackclub/hcb-cli-and-mcp https://github.com/hackclub/hcb-cli-and-mcp
 #   brew install hcb
 brews:
   - name: hcb
