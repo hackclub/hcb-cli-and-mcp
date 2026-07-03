@@ -6,7 +6,7 @@ This is a little repo that exposes the read-only API calls from HCB's v4 API as 
 
 ### MCP
 
-Use the URL `https://hcb-mcp.k.hackclub.dev/mcp` and add it as a connector to Claude / ChatGPT / etc. The server brokers the OAuth flow itself (a sub-authorization-server — see `cmd/hcb-mcp/oauth.go`), so any MCP client's callback URL works with PKCE and no per-client registration on the HCB OAuth app; each user authorizes on HCB's real consent page and sees exactly what their own HCB account can see.
+Use the URL `https://hcb-mcp.k.hackclub.dev/mcp` and add it as a connector to Claude / ChatGPT / etc. That's it! It'll ask you to log in with your HCB account.
 
 ### CLI
 
