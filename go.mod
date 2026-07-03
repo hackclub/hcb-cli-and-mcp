@@ -1,4 +1,4 @@
-module github.com/hackclub/hcb-mcp
+module github.com/hackclub/hcb-cli-and-mcp
 
 go 1.26.4
 

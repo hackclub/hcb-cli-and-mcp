@@ -10,7 +10,7 @@ import (
 	"os"
 	"time"
 
-	"github.com/hackclub/hcb-mcp/internal/hcbapi"
+	"github.com/hackclub/hcb-cli-and-mcp/internal/hcbapi"
 	"github.com/spf13/cobra"
 )
 
@@ -26,7 +26,11 @@ func main() {
 		SilenceUsage:  true,
 		SilenceErrors: true,
 		PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
-			if cmd.Name() == "login" { // login must work without existing creds
+			if cmd.Name() != "upgrade" { // the updater must never respawn itself
+				maybeAutoUpdate()
+			}
+			switch cmd.Name() {
+			case "login", "version", "upgrade": // work without existing creds
 				return nil
 			}
 			var err error
@@ -43,6 +47,7 @@ func main() {
 	root.PersistentFlags().StringVar(&credsPath, "creds", "", "path to credentials.json (default ~/.config/hcb/credentials.json)")
 
 	root.AddCommand(
+		versionCmd(), upgradeCmd(),
 		loginCmd(), authCmd(),
 		userCmd(), iconsCmd(), lookupCmd(),
 		orgsCmd(), orgCmd(), balanceHistoryCmd(), followersCmd(), subOrgsCmd(),

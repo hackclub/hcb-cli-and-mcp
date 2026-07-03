@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/hackclub/hcb-mcp/internal/hcbapi"
+	"github.com/hackclub/hcb-cli-and-mcp/internal/hcbapi"
 	"github.com/spf13/cobra"
 )
 

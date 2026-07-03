@@ -24,7 +24,7 @@ func (c *Client) DownloadFile(ctx context.Context, fileURL, destDir, name string
 	if err != nil {
 		return "", err
 	}
-	req.Header.Set("User-Agent", "hcb-mcp/0.1 (github.com/hackclub/hcb-mcp)")
+	req.Header.Set("User-Agent", "hcb-mcp/0.1 (github.com/hackclub/hcb-cli-and-mcp)")
 	resp, err := c.hc.Do(req)
 	if err != nil {
 		return "", err

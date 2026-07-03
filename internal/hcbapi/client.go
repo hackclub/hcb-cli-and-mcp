@@ -208,7 +208,7 @@ func (c *Client) doGet(ctx context.Context, token, path string, query url.Values
 	}
 	req.Header.Set("Authorization", "Bearer "+token)
 	req.Header.Set("Accept", "application/json")
-	req.Header.Set("User-Agent", "hcb-mcp/0.1 (github.com/hackclub/hcb-mcp)")
+	req.Header.Set("User-Agent", "hcb-mcp/0.1 (github.com/hackclub/hcb-cli-and-mcp)")
 	resp, err := c.hc.Do(req)
 	if err != nil {
 		return nil, 0, err

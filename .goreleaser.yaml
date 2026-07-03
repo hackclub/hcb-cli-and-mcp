@@ -1,0 +1,64 @@
+version: 2
+
+project_name: hcb
+
+builds:
+  - id: hcb
+    main: ./cmd/hcb
+    binary: hcb
+    env: [CGO_ENABLED=0]
+    goos: [darwin, linux]
+    goarch: [amd64, arm64]
+    ldflags:
+      - -s -w
+      - -X main.version={{.Version}}
+      - -X main.commit={{.ShortCommit}}
+      - -X main.date={{.Date}}
+  - id: hcb-mcp
+    main: ./cmd/hcb-mcp
+    binary: hcb-mcp
+    env: [CGO_ENABLED=0]
+    goos: [darwin, linux]
+    goarch: [amd64, arm64]
+    ldflags: [-s -w]
+
+archives:
+  - id: default
+    ids: [hcb, hcb-mcp]
+    formats: [tar.gz]
+    name_template: "{{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
+
+checksum:
+  name_template: checksums.txt
+
+changelog:
+  use: github
+
+release:
+  github:
+    owner: hackclub
+    name: hcb-cli-and-mcp
+
+# The Homebrew formula lives in THIS repo (self-tap), so releases need no
+# extra secrets. Users:
+#   brew tap hackclub/hcb https://github.com/hackclub/hcb-cli-and-mcp
+#   brew install hcb
+brews:
+  - name: hcb
+    ids: [default]
+    repository:
+      owner: hackclub
+      name: hcb-cli-and-mcp
+      branch: main
+    directory: Formula
+    homepage: https://github.com/hackclub/hcb-cli-and-mcp
+    description: "Read-only CLI and MCP server for the HCB v4 API"
+    license: MIT
+    commit_author:
+      name: hcb-release-bot
+      email: noreply@hackclub.com
+    install: |
+      bin.install "hcb"
+      bin.install "hcb-mcp"
+    test: |
+      system "#{bin}/hcb", "version"
