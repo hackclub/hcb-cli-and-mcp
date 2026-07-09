@@ -15,6 +15,10 @@ import (
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
 
+// mcpSessionTimeout bounds the lifetime of clients that disconnect without
+// sending the MCP DELETE request. The SDK otherwise retains them forever.
+const mcpSessionTimeout = 15 * time.Minute
+
 // httpConfig is the HTTP-mode configuration, sourced from the environment.
 type httpConfig struct {
 	// staticToken is the optional shared secret (MCP_AUTH_TOKEN). A request
@@ -97,6 +101,10 @@ func writeJSON(w http.ResponseWriter, status int, v any) {
 //	                                            client secret
 //	/mcp                                        the MCP endpoint (per-request auth)
 func httpHandler(cfg httpConfig) http.Handler {
+	return httpHandlerWithSessionTimeout(cfg, mcpSessionTimeout)
+}
+
+func httpHandlerWithSessionTimeout(cfg httpConfig, sessionTimeout time.Duration) http.Handler {
 	mux := http.NewServeMux()
 	bridge := newAuthBridge()
 
@@ -248,7 +256,7 @@ func httpHandler(cfg httpConfig) http.Handler {
 		}, nil)
 		registerToolsWithOptions(server, c, toolOptions{AllowLocalFileWrites: false})
 		return server
-	}, nil)
+	}, &mcp.StreamableHTTPOptions{SessionTimeout: sessionTimeout})
 
 	mux.Handle("/mcp", requireToken(mcpHandler))
 	return cors(mux)

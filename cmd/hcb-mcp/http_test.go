@@ -11,6 +11,7 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/hackclub/hcb-cli-and-mcp/internal/hcbapi"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
@@ -106,6 +107,33 @@ func callHTTPTool(t *testing.T, base, token, name string, args map[string]any) *
 		t.Fatalf("tool call failed: %v", err)
 	}
 	return res
+}
+
+func TestIdleMCPSessionsExpire(t *testing.T) {
+	api := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Write([]byte(`{"id":"usr_1","object":"user"}`))
+	}))
+	defer api.Close()
+	setServerClient(t, api.URL)
+
+	srv := httptest.NewServer(httpHandlerWithSessionTimeout(testCfg(api.URL), 25*time.Millisecond))
+	defer srv.Close()
+
+	hc := &http.Client{Transport: bearerRoundTripper{token: "sekrit", base: http.DefaultTransport}}
+	mcpClient := mcp.NewClient(&mcp.Implementation{Name: "t", Version: "0"}, nil)
+	session, err := mcpClient.Connect(context.Background(),
+		&mcp.StreamableClientTransport{Endpoint: srv.URL + "/mcp", HTTPClient: hc}, nil)
+	if err != nil {
+		t.Fatalf("connect: %v", err)
+	}
+	defer session.Close()
+
+	time.Sleep(100 * time.Millisecond)
+	if _, err := session.CallTool(context.Background(), &mcp.CallToolParams{
+		Name: "hcb_get_profile", Arguments: map[string]any{},
+	}); err == nil {
+		t.Fatal("tool call on expired idle session succeeded")
+	}
 }
 
 func TestHealthzNoAuth(t *testing.T) {
