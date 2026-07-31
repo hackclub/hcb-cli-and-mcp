@@ -76,7 +76,13 @@ func main() {
 	for _, c := range checks {
 		res, err := session.CallTool(ctx, &mcp.CallToolParams{Name: c.tool, Arguments: c.args})
 		if err != nil || res.IsError {
-			fmt.Printf("FAIL  %s: err=%v isError=%v\n", c.tool, err, res != nil && res.IsError)
+			detail := ""
+			if res != nil && len(res.Content) > 0 {
+				if t, ok := res.Content[0].(*mcp.TextContent); ok {
+					detail = t.Text
+				}
+			}
+			fmt.Printf("FAIL  %s: err=%v isError=%v %.300s\n", c.tool, err, res != nil && res.IsError, detail)
 			fail++
 			continue
 		}
