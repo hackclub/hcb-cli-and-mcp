@@ -71,6 +71,9 @@ func main() {
 		{"hcb_token_info", map[string]any{}, "scope"},
 		{"hcb_get_organization", map[string]any{"organization": org, "expand": "balance_cents"}, `"organization"`},
 		{"hcb_list_transactions", map[string]any{"organization": org, "limit": 3}, `"total_count"`},
+		{"hcb_list_transactions", map[string]any{"organization": org, "limit": 3, "compact": true}, `"total_count"`},
+		{"hcb_list_donations", map[string]any{"organization": org, "limit": 2, "expand": "stats"}, `"total_count"`},
+		{"hcb_org_team", map[string]any{"organization": org, "limit": 2}, `"organizer_position"`},
 		{"hcb_get_profile", map[string]any{}, `"object":"user"`},
 	}
 	for _, c := range checks {
