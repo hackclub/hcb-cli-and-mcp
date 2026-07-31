@@ -2,6 +2,7 @@ package main
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"strings"
 
@@ -56,13 +57,27 @@ func lookupCmd() *cobra.Command {
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return run(func() (json.RawMessage, error) {
+				var raw json.RawMessage
+				var err error
 				if strings.Contains(args[0], "@") {
-					return client.GetUserByEmail(ctx(), args[0])
+					raw, err = client.GetUserByEmail(ctx(), args[0])
+				} else {
+					raw, err = client.GetUser(ctx(), args[0])
 				}
-				return client.GetUser(ctx(), args[0])
+				return raw, adminScopeHint(err)
 			})
 		},
 	}
+}
+
+// adminScopeHint explains that a 403 on user lookup is about the token's
+// scope, not the target user — the most common confusion in real usage.
+func adminScopeHint(err error) error {
+	var apiErr *hcbapi.APIError
+	if errors.As(err, &apiErr) && apiErr.StatusCode == 403 {
+		return fmt.Errorf("%w — user lookup requires the admin:read scope on an auditor/admin HCB account (the 403 is about your token, not the user; log in with `hcb login --admin`)", err)
+	}
+	return err
 }
 
 // --- organizations ---
@@ -137,17 +152,19 @@ func transactionsCmd() *cobra.Command {
 	var f hcbapi.TransactionFilters
 	var limit int
 	var after string
+	var compact bool
 	cmd := &cobra.Command{
 		Use:   "transactions <org>",
 		Short: "List an org's transactions (ledger), with filters",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return runPage(func() (*hcbapi.Page, error) {
+			return runPageCompact(compact, func() (*hcbapi.Page, error) {
 				return client.ListOrgTransactions(ctx(), args[0], f, hcbapi.PageOpts{Limit: limit, After: after})
 			})
 		},
 	}
-	cmd.Flags().StringVar(&f.Search, "search", "", "full-text search")
+	cmd.Flags().BoolVar(&compact, "compact", false, "one small summary object per transaction")
+	cmd.Flags().StringVar(&f.Search, "search", "", "search memo text (case-insensitive substring; memos only, not counterparty names)")
 	cmd.Flags().StringVar(&f.Type, "type", "", "ach_transfer|mailed_check|hcb_transfer|card_charge|check_deposit|donation|invoice|refund|fiscal_sponsorship_fee|reimbursement|wire|paypal_transfer|wise_transfer")
 	cmd.Flags().StringVar(&f.TagID, "tag", "", "tag_… id")
 	cmd.Flags().BoolVar(&f.Expenses, "expenses", false, "only expenses")
@@ -194,15 +211,17 @@ func memoSuggestionsCmd() *cobra.Command {
 func missingReceiptsCmd() *cobra.Command {
 	var limit int
 	var after string
+	var compact bool
 	cmd := &cobra.Command{
 		Use:   "missing-receipts",
 		Short: "List my transactions still missing receipts",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return runPage(func() (*hcbapi.Page, error) {
+			return runPageCompact(compact, func() (*hcbapi.Page, error) {
 				return client.ListMissingReceiptTransactions(ctx(), hcbapi.PageOpts{Limit: limit, After: after})
 			})
 		},
 	}
+	cmd.Flags().BoolVar(&compact, "compact", false, "one small summary object per transaction")
 	cmd.Flags().IntVar(&limit, "limit", 0, "page size (max 100)")
 	cmd.Flags().StringVar(&after, "after", "", "cursor: txn_… id")
 	return cmd
@@ -376,7 +395,7 @@ func cardCmd() *cobra.Command {
 }
 
 func cardTransactionsCmd() *cobra.Command {
-	var missing bool
+	var missing, compact bool
 	var limit int
 	var after string
 	cmd := &cobra.Command{
@@ -384,11 +403,12 @@ func cardTransactionsCmd() *cobra.Command {
 		Short: "List a card's transactions",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return runPage(func() (*hcbapi.Page, error) {
+			return runPageCompact(compact, func() (*hcbapi.Page, error) {
 				return client.ListCardTransactions(ctx(), args[0], missing, hcbapi.PageOpts{Limit: limit, After: after})
 			})
 		},
 	}
+	cmd.Flags().BoolVar(&compact, "compact", false, "one small summary object per transaction")
 	cmd.Flags().BoolVar(&missing, "missing-receipts", false, "only charges missing receipts")
 	cmd.Flags().IntVar(&limit, "limit", 0, "page size (max 100)")
 	cmd.Flags().StringVar(&after, "after", "", "cursor: txn_… id")
@@ -448,16 +468,18 @@ func grantCmd() *cobra.Command {
 func grantTransactionsCmd() *cobra.Command {
 	var limit int
 	var after string
+	var compact bool
 	cmd := &cobra.Command{
 		Use:   "grant-transactions <cdg_id>",
 		Short: "List spending on a card grant",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return runPage(func() (*hcbapi.Page, error) {
+			return runPageCompact(compact, func() (*hcbapi.Page, error) {
 				return client.ListCardGrantTransactions(ctx(), args[0], hcbapi.PageOpts{Limit: limit, After: after})
 			})
 		},
 	}
+	cmd.Flags().BoolVar(&compact, "compact", false, "one small summary object per transaction")
 	cmd.Flags().IntVar(&limit, "limit", 0, "page size (max 100)")
 	cmd.Flags().StringVar(&after, "after", "", "cursor: txn_… id")
 	return cmd
@@ -584,4 +606,89 @@ func invoiceCmd() *cobra.Command {
 			return run(func() (json.RawMessage, error) { return client.GetInvoice(ctx(), args[0]) })
 		},
 	}
+}
+
+// --- donations ---
+
+func donationsCmd() *cobra.Command {
+	var status, expand, after string
+	var limit int
+	cmd := &cobra.Command{
+		Use:   "donations <org>",
+		Short: "List an org's donations",
+		Args:  cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return run(func() (json.RawMessage, error) {
+				return client.ListDonations(ctx(), args[0], status, splitExpand(expand), hcbapi.PageOpts{Limit: limit, After: after})
+			})
+		},
+	}
+	cmd.Flags().StringVar(&status, "status", "", "filter by state (e.g. deposited, in_transit)")
+	cmd.Flags().StringVar(&expand, "expand", "", "comma-separated: stats (total_cents raised)")
+	cmd.Flags().IntVar(&limit, "limit", 0, "page size (max 100)")
+	cmd.Flags().StringVar(&after, "after", "", "cursor: don_… id")
+	return cmd
+}
+
+func donationCmd() *cobra.Command {
+	return &cobra.Command{
+		Use:   "donation <don_id>",
+		Short: "Get a donation",
+		Args:  cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return run(func() (json.RawMessage, error) { return client.GetDonation(ctx(), args[0]) })
+		},
+	}
+}
+
+// --- wires ---
+
+func wiresCmd() *cobra.Command {
+	var limit int
+	var after string
+	cmd := &cobra.Command{
+		Use:   "wires <org>",
+		Short: "List an org's international wire transfers",
+		Args:  cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return runPage(func() (*hcbapi.Page, error) {
+				return client.ListWires(ctx(), args[0], hcbapi.PageOpts{Limit: limit, After: after})
+			})
+		},
+	}
+	cmd.Flags().IntVar(&limit, "limit", 0, "page size (max 100)")
+	cmd.Flags().StringVar(&after, "after", "", "cursor: wir_… id")
+	return cmd
+}
+
+func wireCmd() *cobra.Command {
+	return &cobra.Command{
+		Use:   "wire <wir_id>",
+		Short: "Get a wire transfer",
+		Args:  cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return run(func() (json.RawMessage, error) { return client.GetWire(ctx(), args[0]) })
+		},
+	}
+}
+
+// --- team ---
+
+func teamCmd() *cobra.Command {
+	var expand, after string
+	var limit int
+	cmd := &cobra.Command{
+		Use:   "team <org>",
+		Short: "List an org's team members (organizer positions: role, signee)",
+		Args:  cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return runPage(func() (*hcbapi.Page, error) {
+				return client.ListOrganizerPositions(ctx(), args[0], splitExpand(expand), hcbapi.PageOpts{Limit: limit, After: after})
+			})
+		},
+	}
+	cmd.Flags().StringVar(&expand, "expand", "user", "comma-separated: user (full member record; empty for user_id only)")
+	cmd.Flags().IntVar(&limit, "limit", 0, "page size (max 100)")
+	cmd.Flags().StringVar(&after, "after", "", "cursor: opn_… id")
+	return cmd
 }

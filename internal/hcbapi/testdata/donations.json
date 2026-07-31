@@ -1,0 +1,76 @@
+{
+  "stats": {
+    "total_cents": 11207004
+  },
+  "total_count": 1147,
+  "has_more": true,
+  "data": [
+    {
+      "id": "don_x3619de",
+      "object": "donation",
+      "amount_cents": 4000,
+      "recurring": false,
+      "donor": {
+        "name": "Example Name",
+        "email": "user@example.com"
+      },
+      "attribution": {
+        "referrer": "https://hcb.example.com/files/example-referrer.pdf",
+        "utm_source": null,
+        "utm_medium": null,
+        "utm_campaign": null,
+        "utm_term": null,
+        "utm_content": null
+      },
+      "payment_method": {
+        "type": "card",
+        "brand": "amex",
+        "last4": "1234",
+        "funding": "credit",
+        "exp_month": 4,
+        "exp_year": 2030,
+        "country": "US"
+      },
+      "message": "Example memo",
+      "donated_at": "2026-07-30T02:38:05.607Z",
+      "refunded": false,
+      "deposited": true,
+      "in_transit": false,
+      "created_at": "2026-07-30T02:37:50.636Z"
+    },
+    {
+      "id": "don_xa8f565",
+      "object": "donation",
+      "amount_cents": 800,
+      "recurring": true,
+      "donor": {
+        "name": "Example Name",
+        "email": "user@example.com",
+        "recurring_donor_id": "x3f3719"
+      },
+      "attribution": {
+        "referrer": null,
+        "utm_source": null,
+        "utm_medium": null,
+        "utm_campaign": null,
+        "utm_term": null,
+        "utm_content": null
+      },
+      "payment_method": {
+        "type": "card",
+        "brand": "visa",
+        "last4": "1234",
+        "funding": "credit",
+        "exp_month": 4,
+        "exp_year": 2031,
+        "country": "US"
+      },
+      "message": null,
+      "donated_at": "2026-07-29T23:23:53.237Z",
+      "refunded": false,
+      "deposited": true,
+      "in_transit": false,
+      "created_at": "2026-07-29T23:23:53.237Z"
+    }
+  ]
+}

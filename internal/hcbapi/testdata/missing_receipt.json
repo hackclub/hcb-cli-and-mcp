@@ -1,15 +1,15 @@
 {
-  "total_count": 9,
+  "total_count": 19,
   "has_more": true,
   "data": [
     {
-      "id": "txn_xe506c2",
+      "id": "txn_x365417",
       "object": "transaction",
-      "date": "2026-07-01",
-      "amount_cents": -3342,
+      "date": "2026-07-30",
+      "amount_cents": -39605,
       "memo": "Example memo",
       "has_custom_memo": false,
-      "pending": false,
+      "pending": true,
       "declined": false,
       "reversed": false,
       "tags": [],
@@ -21,10 +21,10 @@
           "name": "Example Name",
           "smart_name": "Example Name",
           "country": "US",
-          "network_id": "420429000211321"
+          "network_id": "x050a0d"
         },
         "charge_method": "online",
-        "spent_at": "2026-07-01T19:22:01.000Z",
+        "spent_at": "2026-07-30T14:14:10.000Z",
         "wallet": null,
         "card": {
           "id": "crd_x58e506",
@@ -60,7 +60,11 @@
             "auditor": true,
             "name": "Example Name",
             "email": "user@example.com",
-            "birthday": "2000-01-01"
+            "birthday": "2000-01-01",
+            "card_locking": {
+              "locked": false,
+              "overdue_receipt_count": 0
+            }
           },
           "last_frozen_by_id": "usr_x618dcb",
           "personalization": {
@@ -89,13 +93,13 @@
       }
     },
     {
-      "id": "txn_xcef882",
+      "id": "txn_xd429d5",
       "object": "transaction",
-      "date": "2026-07-02",
-      "amount_cents": -999,
+      "date": "2026-07-30",
+      "amount_cents": -624,
       "memo": "Example memo",
       "has_custom_memo": false,
-      "pending": false,
+      "pending": true,
       "declined": false,
       "reversed": false,
       "tags": [],
@@ -106,11 +110,11 @@
         "merchant": {
           "name": "Example Name",
           "smart_name": "Example Name",
-          "country": "CH",
-          "network_id": "498750002252816"
+          "country": "US",
+          "network_id": "xfb64a3"
         },
         "charge_method": "online",
-        "spent_at": "2026-07-01T14:24:13.000Z",
+        "spent_at": "2026-07-30T12:59:20.000Z",
         "wallet": null,
         "card": {
           "id": "crd_x58e506",
@@ -146,7 +150,11 @@
             "auditor": true,
             "name": "Example Name",
             "email": "user@example.com",
-            "birthday": "2000-01-01"
+            "birthday": "2000-01-01",
+            "card_locking": {
+              "locked": false,
+              "overdue_receipt_count": 0
+            }
           },
           "last_frozen_by_id": "usr_x618dcb",
           "personalization": {

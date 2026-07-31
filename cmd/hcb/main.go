@@ -59,6 +59,7 @@ func main() {
 		invitationsCmd(), invitationCmd(),
 		checksCmd(), checkCmd(), checkDepositsCmd(), checkDepositCmd(),
 		sponsorsCmd(), sponsorCmd(), invoicesCmd(), invoiceCmd(),
+		donationsCmd(), donationCmd(), wiresCmd(), wireCmd(), teamCmd(),
 	)
 
 	if err := root.Execute(); err != nil {
@@ -106,6 +107,21 @@ func runPage(fn func() (*hcbapi.Page, error)) error {
 	p, err := fn()
 	if err != nil {
 		return err
+	}
+	return printPage(p)
+}
+
+// runPageCompact is runPage with optional transaction compaction: one small
+// summary object per transaction instead of full nested detail.
+func runPageCompact(compact bool, fn func() (*hcbapi.Page, error)) error {
+	p, err := fn()
+	if err != nil {
+		return err
+	}
+	if compact {
+		if p, err = hcbapi.CompactPage(p); err != nil {
+			return err
+		}
 	}
 	return printPage(p)
 }

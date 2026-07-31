@@ -9,6 +9,7 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
+	"strings"
 	"testing"
 )
 
@@ -258,6 +259,49 @@ func TestEndpoints(t *testing.T) {
 			call: func(c *Client) (any, error) { return c.GetCheckDeposit(ctx, "ckd_abc") },
 		},
 		{
+			name: "ListWires", fixture: "wires.json",
+			wantPath:  "/api/v4/wires",
+			wantQuery: url.Values{"event_id": {"hq"}, "limit": {"5"}},
+			call:      func(c *Client) (any, error) { return c.ListWires(ctx, "hq", PageOpts{Limit: 5}) },
+		},
+		{
+			name: "GetWire", fixture: "wire.json",
+			wantPath: "/api/v4/wires/wir_abc", wantQuery: url.Values{},
+			call: func(c *Client) (any, error) { return c.GetWire(ctx, "wir_abc") },
+		},
+		{
+			name: "ListDonations", fixture: "donations.json",
+			wantPath: "/api/v4/donations",
+			wantQuery: url.Values{
+				"event_id": {"hq"}, "status": {"deposited"},
+				"expand": {"stats"}, "limit": {"5"}, "after": {"don_cursor"},
+			},
+			call: func(c *Client) (any, error) {
+				return c.ListDonations(ctx, "hq", "deposited", []string{"stats"}, PageOpts{Limit: 5, After: "don_cursor"})
+			},
+		},
+		{
+			name: "ListDonationsPlain", fixture: "donations.json",
+			wantPath:  "/api/v4/donations",
+			wantQuery: url.Values{"event_id": {"hq"}},
+			call: func(c *Client) (any, error) {
+				return c.ListDonations(ctx, "hq", "", nil, PageOpts{})
+			},
+		},
+		{
+			name: "GetDonation", fixture: "donation.json",
+			wantPath: "/api/v4/donations/don_abc", wantQuery: url.Values{},
+			call: func(c *Client) (any, error) { return c.GetDonation(ctx, "don_abc") },
+		},
+		{
+			name: "ListOrganizerPositions", fixture: "organizer_positions.json",
+			wantPath:  "/api/v4/organizer_positions",
+			wantQuery: url.Values{"event_id": {"hq"}, "expand": {"user"}, "limit": {"5"}},
+			call: func(c *Client) (any, error) {
+				return c.ListOrganizerPositions(ctx, "hq", []string{"user"}, PageOpts{Limit: 5})
+			},
+		},
+		{
 			name: "ListSponsors", fixture: "sponsors.json",
 			wantPath: "/api/v4/sponsors", wantQuery: url.Values{"event_id": {"hq"}},
 			call: func(c *Client) (any, error) { return c.ListSponsors(ctx, "hq") },
@@ -324,6 +368,25 @@ func TestEndpoints(t *testing.T) {
 				t.Errorf("body mismatch for %s", tc.name)
 			}
 		})
+	}
+}
+
+// An hcb_code-style id (HCB-600-…) must fail fast with guidance instead of a
+// confusing upstream 404 — agents regularly paste them from warehouse data.
+func TestGetTransactionRejectsHcbCode(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		t.Error("request should never reach the API")
+	}))
+	defer srv.Close()
+	c := newTestClient(t, srv, nil)
+	_, err := c.GetTransaction(context.Background(), "HCB-600-iauth_123", "")
+	if err == nil {
+		t.Fatal("want error for HCB- prefixed id")
+	}
+	for _, want := range []string{"hcb_code", "txn_"} {
+		if !strings.Contains(err.Error(), want) {
+			t.Errorf("error %q should mention %q", err, want)
+		}
 	}
 }
 

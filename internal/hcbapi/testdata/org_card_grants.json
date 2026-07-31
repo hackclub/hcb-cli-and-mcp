@@ -1,9 +1,9 @@
 [
   {
-    "id": "cdg_x1c9840",
+    "id": "cdg_x202b46",
     "object": "card_xf0070c",
     "user": {
-      "id": "usr_xe98a8b",
+      "id": "usr_x914f49",
       "object": "user",
       "avatar": "https://hcb.example.com/files/example-avatar.png",
       "admin": false,
@@ -11,34 +11,7 @@
       "name": "Example Name"
     },
     "organization_id": "org_x290a10",
-    "amount_cents": 20000,
-    "merchant_lock": [],
-    "category_lock": [],
-    "keyword_lock": null,
-    "allowed_merchants": [],
-    "allowed_categories": [],
-    "purpose": "",
-    "one_time_use": false,
-    "pre_authorization_required": false,
-    "email": "user@example.com",
-    "expires_on": "2027-06-25",
-    "status": "active",
-    "card_id": "crd_xed7fc0",
-    "created_at": "2026-06-25T21:16:49.216Z"
-  },
-  {
-    "id": "cdg_x5c9536",
-    "object": "card_xf0070c",
-    "user": {
-      "id": "usr_xb9f385",
-      "object": "user",
-      "avatar": "https://hcb.example.com/files/example-avatar.png",
-      "admin": false,
-      "auditor": false,
-      "name": "Example Name"
-    },
-    "organization_id": "org_x290a10",
-    "amount_cents": 22000,
+    "amount_cents": 610000,
     "merchant_lock": [],
     "category_lock": [],
     "keyword_lock": null,
@@ -48,9 +21,36 @@
     "one_time_use": false,
     "pre_authorization_required": false,
     "email": "user@example.com",
-    "expires_on": "2027-06-10",
-    "status": "active",
-    "card_id": "crd_x9a79f5",
-    "created_at": "2026-06-10T20:11:41.038Z"
+    "expires_on": "2027-08-31",
+    "status": "canceled",
+    "card_id": null,
+    "created_at": "2026-07-29T13:40:42.775Z"
+  },
+  {
+    "id": "cdg_xaa1df0",
+    "object": "card_xf0070c",
+    "user": {
+      "id": "usr_x4b26c3",
+      "object": "user",
+      "avatar": "https://hcb.example.com/files/example-avatar.png",
+      "admin": false,
+      "auditor": false,
+      "name": "Example Name"
+    },
+    "organization_id": "org_x290a10",
+    "amount_cents": 230000,
+    "merchant_lock": [],
+    "category_lock": [],
+    "keyword_lock": null,
+    "allowed_merchants": [],
+    "allowed_categories": [],
+    "purpose": "Example memo",
+    "one_time_use": false,
+    "pre_authorization_required": false,
+    "email": "user@example.com",
+    "expires_on": "2027-09-15",
+    "status": "canceled",
+    "card_id": "crd_xc055c5",
+    "created_at": "2026-07-24T20:53:48.329Z"
   }
 ]

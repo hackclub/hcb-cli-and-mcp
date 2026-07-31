@@ -1,11 +1,12 @@
 {
   "resource_owner_id": 1,
   "scope": [
-    "read"
+    "read",
+    "admin:read"
   ],
-  "expires_in": 6570,
+  "expires_in": 6881,
   "application": {
     "uid": "bGnHamOcIyKv74vPgrcEhtWzw5uydPaswttGJPmAWeo"
   },
-  "created_at": 1783047408
+  "created_at": 1785467816
 }

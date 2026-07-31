@@ -1,28 +1,28 @@
 [
   {
-    "id": "inv_xa56336",
+    "id": "inv_x371d3a",
     "object": "invoice",
     "status": "Deposited",
     "to": "Example Name",
-    "amount_due": 3117,
+    "amount_due": 1000,
     "memo": "Example memo",
-    "due_date": "2026-07-18T15:54:27.000Z",
-    "item_amount": 3117,
+    "due_date": "2026-08-27T14:45:05.000Z",
+    "item_amount": 1000,
     "item_description": "Example memo",
-    "sponsor_id": 5881,
-    "created_at": "2026-06-18T15:54:27.436Z"
+    "sponsor_id": 6030,
+    "created_at": "2026-07-27T14:45:05.403Z"
   },
   {
-    "id": "inv_x397fcc",
+    "id": "inv_xaee9f9",
     "object": "invoice",
-    "status": "Deposited",
+    "status": "Voided",
     "to": "Example Name",
-    "amount_due": 1940,
+    "amount_due": 30730,
     "memo": "Example memo",
-    "due_date": "2026-07-17T00:00:00.000Z",
-    "item_amount": 1940,
+    "due_date": "2026-08-12T00:00:00.000Z",
+    "item_amount": 30730,
     "item_description": "Example memo",
-    "sponsor_id": 5877,
-    "created_at": "2026-06-17T19:03:10.408Z"
+    "sponsor_id": 5980,
+    "created_at": "2026-07-13T16:47:23.644Z"
   }
 ]

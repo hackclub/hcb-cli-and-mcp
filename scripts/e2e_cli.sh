@@ -50,11 +50,13 @@ out["CHECK"] = first_id(run("checks", ORG))
 out["DEPOSIT"] = first_id(run("check-deposits", ORG))
 out["SPONSOR"] = first_id(run("sponsors", ORG))
 out["INVOICE"] = first_id(run("invoices", ORG))
+out["DONATION"] = first_id(run("donations", ORG, "--limit", "3"))
+out["WIRE"] = first_id(run("wires", ORG, "--limit", "3"))
 for k, v in out.items():
     print(f'{k}="{v}"')
 EOF
 )"
-echo "discovered: TXN=$TXN RTXN=$RTXN TAG=$TAG CARD=$CARD GRANT=$GRANT CHECK=$CHECK DEPOSIT=$DEPOSIT SPONSOR=$SPONSOR INVOICE=$INVOICE"
+echo "discovered: TXN=$TXN RTXN=$RTXN TAG=$TAG CARD=$CARD GRANT=$GRANT CHECK=$CHECK DEPOSIT=$DEPOSIT SPONSOR=$SPONSOR INVOICE=$INVOICE DONATION=$DONATION WIRE=$WIRE"
 
 check() { # name, expectation ("ok" or "err"), cmd...
   local name="$1" expect="$2"; shift 2
@@ -73,14 +75,21 @@ check() { # name, expectation ("ok" or "err"), cmd...
 }
 
 MY_ID=$($B user | python3 -c "import json,sys; print(json.load(sys.stdin)['id'])")
+MY_EMAIL=$($B user | python3 -c "import json,sys; print(json.load(sys.stdin).get('email') or '')")
+HAS_ADMIN=$($B auth status | python3 -c "import json,sys; print('yes' if 'admin:read' in (json.load(sys.stdin).get('scope') or []) else 'no')")
 
 check "auth status"            ok  $B auth status
 check "auth refresh"           ok  $B auth refresh
 check "user"                   ok  $B user
 check "user --expand"          ok  $B user --expand shipping_address,billing_address --avatar-size 64
 check "icons"                  ok  $B icons
-check "lookup by id (needs admin:read -> err)" err $B lookup "$MY_ID"
-check "lookup by email (err)"  err $B lookup user@example.com
+if [ "$HAS_ADMIN" = yes ]; then
+  check "lookup by id (admin:read)"    ok  $B lookup "$MY_ID"
+  check "lookup by email (admin:read)" ok  $B lookup "$MY_EMAIL"
+else
+  check "lookup by id (needs admin:read -> err)" err $B lookup "$MY_ID"
+  check "lookup by email (err)"  err $B lookup user@example.com
+fi
 check "orgs"                   ok  $B orgs
 check "orgs --expand balance"  ok  $B orgs --expand balance_cents
 check "org"                    ok  $B org $ORG
@@ -91,7 +100,9 @@ check "sub-orgs"               ok  $B sub-orgs $ORG
 check "transactions"           ok  $B transactions $ORG --limit 3
 check "transactions filters"   ok  $B transactions $ORG --limit 3 --type card_charge --expenses --min 1 --max 100000 --start 2020-01-01
 check "transactions search"    ok  $B transactions $ORG --limit 3 --search a
+check "transactions --compact" ok  $B transactions $ORG --limit 3 --compact
 check "transaction"            ok  $B transaction "$TXN"
+check "transaction hcb_code (helpful err)" err $B transaction HCB-600-iauth_example
 check "transaction --org"      ok  $B transaction "$TXN" --org $ORG
 check "memo-suggestions"       ok  $B memo-suggestions $ORG "$TXN"
 check "missing-receipts"       ok  $B missing-receipts --limit 3
@@ -124,6 +135,11 @@ check "sponsors"               ok  $B sponsors $ORG
 check "sponsor"                ok  $B sponsor "$SPONSOR"
 check "invoices"               ok  $B invoices $ORG
 check "invoice"                ok  $B invoice "$INVOICE"
+check "donations"              ok  $B donations $ORG --limit 3 --expand stats
+check "donation"               ok  $B donation "$DONATION"
+check "wires"                  ok  $B wires $ORG --limit 3
+check "wire"                   ok  $B wire "$WIRE"
+check "team"                   ok  $B team $ORG --limit 5
 
 # file downloads: org logo + check deposit image via generic download
 ICON_URL=$($B org $ORG | python3 -c "import json,sys; print(json.load(sys.stdin).get('icon') or '')")

@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"strings"
 
@@ -22,10 +23,22 @@ func raw[T any](fn func(ctx context.Context, args T) (json.RawMessage, error)) f
 }
 
 func paged[T any](fn func(ctx context.Context, args T) (*hcbapi.Page, error)) func(context.Context, *mcp.CallToolRequest, T) (*mcp.CallToolResult, any, error) {
+	return pagedCompact(fn, func(T) bool { return false })
+}
+
+// pagedCompact is paged with per-call transaction compaction: when
+// isCompact(args) is true the page's data array is rewritten into one small
+// summary object per transaction.
+func pagedCompact[T any](fn func(ctx context.Context, args T) (*hcbapi.Page, error), isCompact func(T) bool) func(context.Context, *mcp.CallToolRequest, T) (*mcp.CallToolResult, any, error) {
 	return func(ctx context.Context, req *mcp.CallToolRequest, args T) (*mcp.CallToolResult, any, error) {
 		p, err := fn(ctx, args)
 		if err != nil {
 			return errResult(err)
+		}
+		if isCompact(args) {
+			if p, err = hcbapi.CompactPage(p); err != nil {
+				return errResult(err)
+			}
 		}
 		res, err := pageResult(p)
 		if err != nil {
@@ -70,6 +83,12 @@ type pageArgs struct {
 	After string `json:"after,omitempty" jsonschema:"cursor: last item id of previous page"`
 }
 
+type compactPageArgs struct {
+	Compact bool   `json:"compact,omitempty" jsonschema:"return one small summary object per transaction (id, date, amount, memo, type, counterparty) instead of full nested detail — strongly recommended for limits above ~25 to keep results small"`
+	Limit   int    `json:"limit,omitempty" jsonschema:"page size, default 25, max 100"`
+	After   string `json:"after,omitempty" jsonschema:"cursor: last item id of previous page"`
+}
+
 type toolOptions struct {
 	AllowLocalFileWrites bool
 }
@@ -105,10 +124,18 @@ func registerToolsWithOptions(server *mcp.Server, client *hcbapi.Client, opts to
 	}, raw(func(ctx context.Context, a struct {
 		Query string `json:"query" jsonschema:"a usr_… id or an email address"`
 	}) (json.RawMessage, error) {
+		var body json.RawMessage
+		var err error
 		if strings.Contains(a.Query, "@") {
-			return client.GetUserByEmail(ctx, a.Query)
+			body, err = client.GetUserByEmail(ctx, a.Query)
+		} else {
+			body, err = client.GetUser(ctx, a.Query)
 		}
-		return client.GetUser(ctx, a.Query)
+		var apiErr *hcbapi.APIError
+		if errors.As(err, &apiErr) && apiErr.StatusCode == 403 {
+			return nil, fmt.Errorf("%w — user lookup requires the admin:read scope on an auditor/admin HCB account; this 403 is about the current token's scope, not the user you searched for", err)
+		}
+		return body, err
 	}))
 
 	mcp.AddTool(server, &mcp.Tool{
@@ -155,13 +182,9 @@ func registerToolsWithOptions(server *mcp.Server, client *hcbapi.Client, opts to
 	}))
 
 	// --- ledger ---
-	mcp.AddTool(server, &mcp.Tool{
-		Name: "hcb_list_transactions",
-		Description: "List an organization's transactions (pending + settled ledger), newest first, paginated. " +
-			"Filter by search text, type (card_charge, ach_transfer, mailed_check, hcb_transfer, check_deposit, donation, invoice, refund, fiscal_sponsorship_fee, reimbursement, wire, paypal_transfer, wise_transfer), date range, amount range (dollars), user, tag, expenses/revenue, missing receipts.",
-	}, paged(func(ctx context.Context, a struct {
+	type listTransactionsArgs struct {
 		Organization    string `json:"organization" jsonschema:"organization id or slug"`
-		Search          string `json:"search,omitempty"`
+		Search          string `json:"search,omitempty" jsonschema:"case-insensitive substring match on memo text ONLY — it will not find counterparty/recipient/merchant names; use type/user/tag/amount/date filters for those"`
 		Type            string `json:"type,omitempty"`
 		TagID           string `json:"tag_id,omitempty"`
 		Expenses        bool   `json:"expenses,omitempty" jsonschema:"only outgoing money"`
@@ -174,22 +197,29 @@ func registerToolsWithOptions(server *mcp.Server, client *hcbapi.Client, opts to
 		MissingReceipts bool   `json:"missing_receipts,omitempty"`
 		Category        string `json:"category,omitempty"`
 		Merchant        string `json:"merchant,omitempty"`
+		Compact         bool   `json:"compact,omitempty" jsonschema:"return one small summary object per transaction (id, date, amount, memo, type, counterparty) instead of full nested detail — strongly recommended for limits above ~25 to keep results small"`
 		Limit           int    `json:"limit,omitempty" jsonschema:"page size, max 100"`
 		After           string `json:"after,omitempty" jsonschema:"cursor txn_… id"`
-	}) (*hcbapi.Page, error) {
+	}
+	mcp.AddTool(server, &mcp.Tool{
+		Name: "hcb_list_transactions",
+		Description: "List an organization's transactions (pending + settled ledger), newest first, paginated. " +
+			"Filter by search text (matches memo text only), type (card_charge, ach_transfer, mailed_check, hcb_transfer, check_deposit, donation, invoice, refund, fiscal_sponsorship_fee, reimbursement, wire, paypal_transfer, wise_transfer), date range, amount range (dollars), user, tag, expenses/revenue, missing receipts. " +
+			"Set compact=true for large pages: full results with limit 100 can exceed client token limits.",
+	}, pagedCompact(func(ctx context.Context, a listTransactionsArgs) (*hcbapi.Page, error) {
 		return client.ListOrgTransactions(ctx, a.Organization, hcbapi.TransactionFilters{
 			Search: a.Search, Type: a.Type, TagID: a.TagID, Expenses: a.Expenses, Revenue: a.Revenue,
 			MinimumAmount: a.MinimumAmount, MaximumAmount: a.MaximumAmount,
 			StartDate: a.StartDate, EndDate: a.EndDate, UserID: a.UserID,
 			MissingReceipts: a.MissingReceipts, Category: a.Category, Merchant: a.Merchant,
 		}, hcbapi.PageOpts{Limit: a.Limit, After: a.After})
-	}))
+	}, func(a listTransactionsArgs) bool { return a.Compact }))
 
 	mcp.AddTool(server, &mcp.Tool{
 		Name:        "hcb_get_transaction",
-		Description: "Get a transaction's full details (memo, amount, tags, receipts status, and type-specific info like merchant for card charges). Pass organization to view from that org's perspective.",
+		Description: "Get a transaction's full details (memo, amount, tags, receipts status, and type-specific info like merchant for card charges). Pass organization to view from that org's perspective. Only txn_… public ids work — internal HCB-… hcb_codes cannot be looked up directly.",
 	}, raw(func(ctx context.Context, a struct {
-		ID           string `json:"id" jsonschema:"txn_… id"`
+		ID           string `json:"id" jsonschema:"txn_… id (not an HCB-… code)"`
 		Organization string `json:"organization,omitempty" jsonschema:"optional org id or slug"`
 	}) (json.RawMessage, error) {
 		return client.GetTransaction(ctx, a.ID, a.Organization)
@@ -208,9 +238,9 @@ func registerToolsWithOptions(server *mcp.Server, client *hcbapi.Client, opts to
 	mcp.AddTool(server, &mcp.Tool{
 		Name:        "hcb_missing_receipts",
 		Description: "List the authenticated user's own card transactions still missing receipts, paginated.",
-	}, paged(func(ctx context.Context, a pageArgs) (*hcbapi.Page, error) {
+	}, pagedCompact(func(ctx context.Context, a compactPageArgs) (*hcbapi.Page, error) {
 		return client.ListMissingReceiptTransactions(ctx, hcbapi.PageOpts{Limit: a.Limit, After: a.After})
-	}))
+	}, func(a compactPageArgs) bool { return a.Compact }))
 
 	// --- receipts & files ---
 	mcp.AddTool(server, &mcp.Tool{
@@ -346,17 +376,19 @@ func registerToolsWithOptions(server *mcp.Server, client *hcbapi.Client, opts to
 		return client.GetCard(ctx, a.ID, split(a.Expand))
 	}))
 
+	type cardTransactionsArgs struct {
+		ID              string `json:"id" jsonschema:"crd_… id"`
+		MissingReceipts bool   `json:"missing_receipts,omitempty"`
+		Compact         bool   `json:"compact,omitempty" jsonschema:"return one small summary object per transaction instead of full nested detail"`
+		Limit           int    `json:"limit,omitempty"`
+		After           string `json:"after,omitempty"`
+	}
 	mcp.AddTool(server, &mcp.Tool{
 		Name:        "hcb_card_transactions",
 		Description: "List a card's transactions, paginated. Set missing_receipts=true to only show charges lacking receipts.",
-	}, paged(func(ctx context.Context, a struct {
-		ID              string `json:"id" jsonschema:"crd_… id"`
-		MissingReceipts bool   `json:"missing_receipts,omitempty"`
-		Limit           int    `json:"limit,omitempty"`
-		After           string `json:"after,omitempty"`
-	}) (*hcbapi.Page, error) {
+	}, pagedCompact(func(ctx context.Context, a cardTransactionsArgs) (*hcbapi.Page, error) {
 		return client.ListCardTransactions(ctx, a.ID, a.MissingReceipts, hcbapi.PageOpts{Limit: a.Limit, After: a.After})
-	}))
+	}, func(a cardTransactionsArgs) bool { return a.Compact }))
 
 	mcp.AddTool(server, &mcp.Tool{
 		Name:        "hcb_card_designs",
@@ -391,16 +423,18 @@ func registerToolsWithOptions(server *mcp.Server, client *hcbapi.Client, opts to
 		return client.GetCardGrant(ctx, a.ID, split(a.Expand))
 	}))
 
+	type grantTransactionsArgs struct {
+		ID      string `json:"id" jsonschema:"cdg_… id"`
+		Compact bool   `json:"compact,omitempty" jsonschema:"return one small summary object per transaction instead of full nested detail"`
+		Limit   int    `json:"limit,omitempty"`
+		After   string `json:"after,omitempty"`
+	}
 	mcp.AddTool(server, &mcp.Tool{
 		Name:        "hcb_card_grant_transactions",
 		Description: "List spending on a card grant's card, paginated.",
-	}, paged(func(ctx context.Context, a struct {
-		ID    string `json:"id" jsonschema:"cdg_… id"`
-		Limit int    `json:"limit,omitempty"`
-		After string `json:"after,omitempty"`
-	}) (*hcbapi.Page, error) {
+	}, pagedCompact(func(ctx context.Context, a grantTransactionsArgs) (*hcbapi.Page, error) {
 		return client.ListCardGrantTransactions(ctx, a.ID, hcbapi.PageOpts{Limit: a.Limit, After: a.After})
-	}))
+	}, func(a grantTransactionsArgs) bool { return a.Compact }))
 
 	// --- invitations ---
 	mcp.AddTool(server, &mcp.Tool{
@@ -478,5 +512,57 @@ func registerToolsWithOptions(server *mcp.Server, client *hcbapi.Client, opts to
 		Description: "Get an invoice (inv_…).",
 	}, raw(func(ctx context.Context, a idArgs) (json.RawMessage, error) {
 		return client.GetInvoice(ctx, a.ID)
+	}))
+
+	// --- donations ---
+	mcp.AddTool(server, &mcp.Tool{
+		Name:        "hcb_list_donations",
+		Description: "List an organization's donations (newest first), paginated: donor name/email, amount, payment method, status. Filter with status (e.g. deposited, in_transit); expand=stats adds total_cents successfully raised.",
+	}, raw(func(ctx context.Context, a struct {
+		Organization string `json:"organization" jsonschema:"organization id (org_…) or slug"`
+		Status       string `json:"status,omitempty" jsonschema:"filter by state, e.g. deposited or in_transit"`
+		Expand       string `json:"expand,omitempty" jsonschema:"comma-separated: stats (adds total_cents raised)"`
+		Limit        int    `json:"limit,omitempty" jsonschema:"page size, max 100"`
+		After        string `json:"after,omitempty" jsonschema:"cursor: don_… id"`
+	}) (json.RawMessage, error) {
+		return client.ListDonations(ctx, a.Organization, a.Status, split(a.Expand), hcbapi.PageOpts{Limit: a.Limit, After: a.After})
+	}))
+
+	mcp.AddTool(server, &mcp.Tool{
+		Name:        "hcb_get_donation",
+		Description: "Get a donation (don_…): donor, amount, payment method, attribution, status.",
+	}, raw(func(ctx context.Context, a idArgs) (json.RawMessage, error) {
+		return client.GetDonation(ctx, a.ID)
+	}))
+
+	// --- wires ---
+	mcp.AddTool(server, &mcp.Tool{
+		Name:        "hcb_list_wires",
+		Description: "List an organization's outgoing international wire transfers (newest first), paginated: recipient, amount, currency, state.",
+	}, paged(func(ctx context.Context, a struct {
+		Organization string `json:"organization" jsonschema:"organization id (org_…) or slug"`
+		Limit        int    `json:"limit,omitempty" jsonschema:"page size, max 100"`
+		After        string `json:"after,omitempty" jsonschema:"cursor: wir_… id"`
+	}) (*hcbapi.Page, error) {
+		return client.ListWires(ctx, a.Organization, hcbapi.PageOpts{Limit: a.Limit, After: a.After})
+	}))
+
+	mcp.AddTool(server, &mcp.Tool{
+		Name:        "hcb_get_wire",
+		Description: "Get an international wire transfer (wir_…): recipient, amount, currency, state, sender.",
+	}, raw(func(ctx context.Context, a idArgs) (json.RawMessage, error) {
+		return client.GetWire(ctx, a.ID)
+	}))
+
+	// --- team ---
+	mcp.AddTool(server, &mcp.Tool{
+		Name:        "hcb_org_team",
+		Description: "List an organization's team members (organizer positions), paginated: each member's user record with their role (manager/member/reader) and whether they are a signee. Richer than hcb_get_organization expand=users.",
+	}, paged(func(ctx context.Context, a struct {
+		Organization string `json:"organization" jsonschema:"organization id (org_…) or slug"`
+		Limit        int    `json:"limit,omitempty" jsonschema:"page size, max 100"`
+		After        string `json:"after,omitempty" jsonschema:"cursor: opn_… id"`
+	}) (*hcbapi.Page, error) {
+		return client.ListOrganizerPositions(ctx, a.Organization, []string{"user"}, hcbapi.PageOpts{Limit: a.Limit, After: a.After})
 	}))
 }

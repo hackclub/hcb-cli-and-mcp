@@ -22,5 +22,9 @@
     "state": "VT",
     "country": "US",
     "postal_code": "05401"
+  },
+  "card_locking": {
+    "locked": false,
+    "overdue_receipt_count": 0
   }
 }

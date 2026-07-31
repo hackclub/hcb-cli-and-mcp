@@ -19,7 +19,6 @@ import (
 	"context"
 	"encoding/json"
 	"flag"
-	"fmt"
 	"log"
 	"os"
 	"strings"
@@ -89,7 +88,7 @@ func textResult(s string) *mcp.CallToolResult {
 func errResult(err error) (*mcp.CallToolResult, any, error) {
 	return &mcp.CallToolResult{
 		IsError: true,
-		Content: []mcp.Content{&mcp.TextContent{Text: fmt.Sprintf("HCB API error: %v", err)}},
+		Content: []mcp.Content{&mcp.TextContent{Text: err.Error()}},
 	}, nil, nil
 }
 

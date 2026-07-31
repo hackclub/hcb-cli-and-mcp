@@ -1,0 +1,27 @@
+{
+  "id": "wir_xf2985b",
+  "object": "wire",
+  "organization_id": "org_x290a10",
+  "amount_cents": 17500,
+  "currency": "USD",
+  "state": "VT",
+  "memo": "Example memo",
+  "payment_for": "Example memo",
+  "recipient_name": "Example Name",
+  "recipient_email": "user@example.com",
+  "recipient_country": "IN",
+  "address_line1": "1 Example St",
+  "address_line2": "",
+  "address_city": "Exampleville",
+  "address_state": "VT",
+  "address_postal_code": "05401",
+  "sender": {
+    "id": "usr_x698ebe",
+    "object": "user",
+    "avatar": "https://hcb.example.com/files/example-avatar.png",
+    "admin": true,
+    "auditor": true,
+    "name": "Example Name"
+  },
+  "created_at": "2026-07-06T18:51:45.595Z"
+}

@@ -1,60 +1,12 @@
 {
-  "total_count": 22811,
+  "total_count": 23704,
   "has_more": true,
   "data": [
     {
-      "id": "txn_x20af76",
+      "id": "txn_x39604b",
       "object": "transaction",
-      "date": "2026-07-03",
-      "amount_cents": -1543,
-      "memo": "Example memo",
-      "has_custom_memo": false,
-      "pending": true,
-      "declined": false,
-      "reversed": false,
-      "tags": [],
-      "code": "600",
-      "missing_receipt": true,
-      "lost_receipt": false,
-      "card_charge": {
-        "merchant": {
-          "name": "Example Name",
-          "smart_name": "Example Name",
-          "country": "CA",
-          "network_id": "BHF6E5ONJSHHWZT"
-        },
-        "charge_method": "online",
-        "spent_at": "2026-07-03T00:51:33.000Z",
-        "wallet": null,
-        "card": {
-          "id": "crd_x13a0ef",
-          "object": "stripe_card",
-          "type": "virtual",
-          "status": "active",
-          "name": "Example Name",
-          "last4": "1234",
-          "exp_month": 5,
-          "exp_year": 2028,
-          "organization_id": "org_x290a10",
-          "user": {
-            "id": "usr_xab3644",
-            "object": "user",
-            "avatar": "https://hcb.example.com/files/example-avatar.png",
-            "admin": true,
-            "auditor": true,
-            "name": "Example Name"
-          },
-          "last_frozen_by_id": "usr_xfbfbc9",
-          "created_at": "2025-06-20T15:43:08.530Z"
-        }
-      },
-      "organization_id": "org_x290a10"
-    },
-    {
-      "id": "txn_x2e7304",
-      "object": "transaction",
-      "date": "2026-07-02",
-      "amount_cents": -3510,
+      "date": "2026-07-30",
+      "amount_cents": -1200,
       "memo": "Example memo",
       "has_custom_memo": false,
       "pending": true,
@@ -68,24 +20,24 @@
         "merchant": {
           "name": "Example Name",
           "smart_name": "Example Name",
-          "country": "CA",
-          "network_id": "0030209421520"
+          "country": "US",
+          "network_id": "x262535"
         },
-        "charge_method": "online",
-        "spent_at": "2026-07-02T18:42:39.000Z",
-        "wallet": null,
+        "charge_method": "contactless",
+        "spent_at": "2026-07-30T18:08:12.000Z",
+        "wallet": "google_pay",
         "card": {
-          "id": "crd_x2f828c",
+          "id": "crd_x36b758",
           "object": "stripe_card",
           "type": "virtual",
           "status": "active",
-          "name": "Example Name",
+          "name": null,
           "last4": "1234",
-          "exp_month": 2,
-          "exp_year": 2029,
+          "exp_month": 6,
+          "exp_year": 2028,
           "organization_id": "org_x290a10",
           "user": {
-            "id": "usr_xd481f2",
+            "id": "usr_xe6d5ae",
             "object": "user",
             "avatar": "https://hcb.example.com/files/example-avatar.png",
             "admin": false,
@@ -93,7 +45,65 @@
             "name": "Example Name"
           },
           "last_frozen_by_id": null,
-          "created_at": "2026-01-13T21:24:43.515Z"
+          "created_at": "2025-09-11T16:25:28.701Z"
+        }
+      },
+      "organization_id": "org_x290a10"
+    },
+    {
+      "id": "txn_x955109",
+      "object": "transaction",
+      "date": "2026-07-30",
+      "amount_cents": -3487,
+      "memo": "Example memo",
+      "has_custom_memo": false,
+      "pending": true,
+      "declined": false,
+      "reversed": false,
+      "tags": [],
+      "code": "600",
+      "missing_receipt": false,
+      "lost_receipt": false,
+      "card_charge": {
+        "merchant": {
+          "name": "Example Name",
+          "smart_name": "Example Name",
+          "country": "US",
+          "network_id": "x87f711"
+        },
+        "charge_method": "contactless",
+        "spent_at": "2026-07-30T16:35:10.000Z",
+        "wallet": "apple_pay",
+        "card": {
+          "id": "crd_x58e506",
+          "object": "stripe_card",
+          "type": "physical",
+          "status": "active",
+          "name": null,
+          "last4": "1234",
+          "exp_month": 7,
+          "exp_year": 2026,
+          "organization_id": "org_x290a10",
+          "user": {
+            "id": "usr_x2ba4e6",
+            "object": "user",
+            "avatar": "https://hcb.example.com/files/example-avatar.png",
+            "admin": true,
+            "auditor": true,
+            "name": "Example Name",
+            "email": "user@example.com",
+            "birthday": "2000-01-01",
+            "card_locking": {
+              "locked": false,
+              "overdue_receipt_count": 0
+            }
+          },
+          "last_frozen_by_id": "usr_x618dcb",
+          "personalization": {
+            "color": null,
+            "logo_url": "https://hcb.example.com/files/example-logo_url.png"
+          },
+          "created_at": "2022-09-21T00:49:37.740Z"
         }
       },
       "organization_id": "org_x290a10"

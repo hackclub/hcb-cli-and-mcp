@@ -1,0 +1,33 @@
+{
+  "id": "don_x3619de",
+  "object": "donation",
+  "amount_cents": 4000,
+  "recurring": false,
+  "donor": {
+    "name": "Example Name",
+    "email": "user@example.com"
+  },
+  "attribution": {
+    "referrer": "https://hcb.example.com/files/example-referrer.pdf",
+    "utm_source": null,
+    "utm_medium": null,
+    "utm_campaign": null,
+    "utm_term": null,
+    "utm_content": null
+  },
+  "payment_method": {
+    "type": "card",
+    "brand": "amex",
+    "last4": "1234",
+    "funding": "credit",
+    "exp_month": 4,
+    "exp_year": 2030,
+    "country": "US"
+  },
+  "message": "Example memo",
+  "donated_at": "2026-07-30T02:38:05.607Z",
+  "refunded": false,
+  "deposited": true,
+  "in_transit": false,
+  "created_at": "2026-07-30T02:37:50.636Z"
+}

@@ -91,6 +91,7 @@ func TestAllToolsRegistered(t *testing.T) {
 		"hcb_list_invitations", "hcb_get_invitation",
 		"hcb_list_checks", "hcb_get_check", "hcb_list_check_deposits", "hcb_get_check_deposit",
 		"hcb_list_sponsors", "hcb_get_sponsor", "hcb_list_invoices", "hcb_get_invoice",
+		"hcb_list_donations", "hcb_get_donation", "hcb_list_wires", "hcb_get_wire", "hcb_org_team",
 	}
 	got := map[string]bool{}
 	for _, n := range names {

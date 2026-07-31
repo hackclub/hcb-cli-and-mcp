@@ -13,14 +13,25 @@
   "transparent": true,
   "fee_percentage": 0.0,
   "background_image": "https://hcb.example.com/files/example-background_image.png",
-  "balance_cents": 407625297,
+  "balance_cents": 331918601,
   "fee_balance_cents": 0,
-  "total_spent_cents": 4374497354,
-  "total_raised_cents": 4782122651,
+  "total_spent_cents": 4472134977,
+  "total_raised_cents": 4804053578,
   "account_number": "REDACTED",
   "routing_number": "REDACTED",
   "swift_bic_code": "REDACTED",
   "users": [
+    {
+      "id": "usr_x7b7043",
+      "object": "user",
+      "avatar": "https://hcb.example.com/files/example-avatar.png",
+      "admin": true,
+      "auditor": true,
+      "name": "Example Name",
+      "email": "user@example.com",
+      "joined_at": "2026-07-10T19:37:40.686Z",
+      "role": "manager"
+    },
     {
       "id": "usr_x8c1530",
       "object": "user",
@@ -30,18 +41,7 @@
       "name": "Example Name",
       "email": "user@example.com",
       "joined_at": "2026-06-02T18:19:17.265Z",
-      "role": "member"
-    },
-    {
-      "id": "usr_x36fdb8",
-      "object": "user",
-      "avatar": "https://hcb.example.com/files/example-avatar.png",
-      "admin": false,
-      "auditor": false,
-      "name": "Example Name",
-      "email": "user@example.com",
-      "joined_at": "2026-03-20T16:09:24.480Z",
-      "role": "member"
+      "role": "manager"
     }
   ],
   "created_at": "2019-05-16T12:52:11.747Z"

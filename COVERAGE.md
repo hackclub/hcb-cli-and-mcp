@@ -2,10 +2,10 @@
 
 Every read-only flow from `hcb-v4-api-flows.csv` mapped to its implementation. Status legend:
 - **unit** — TDD unit test against recorded prod fixture passes (`go test ./...`)
-- **cli** — manually verified: real CLI invocation against production HCB (`scripts/e2e_cli.sh`, 52/52 pass, 2026-07-03)
-- **mcp** — manually verified: real MCP tool call over stdio against production HCB (`go run ./scripts/e2e-mcp`, 45/45 pass, 2026-07-03)
+- **cli** — manually verified: real CLI invocation against production HCB (`scripts/e2e_cli.sh`, 59/59 pass, 2026-07-30)
+- **mcp** — manually verified: real MCP tool call over stdio against production HCB (`go run ./scripts/e2e-mcp`, 51/51 pass, 2026-07-30)
 
-All 49 rows verified. Real ID prefixes observed in prod: checks `ick_`, check deposits `cdp_`, sponsors `spr_` (the flows CSV, written from the web code, guessed `chk_`/`ckd_`/`spo_`).
+All 54 rows verified. Real ID prefixes observed in prod: checks `ick_`, check deposits `cdp_`, sponsors `spr_`, donations `don_`, wires `wir_`, organizer positions `opn_` (the flows CSV, written from the web code, guessed `chk_`/`ckd_`/`spo_`).
 
 | # | CSV flow | Client method (`hcbapi`) | CLI command | MCP tool | unit | cli | mcp | Notes |
 |---|----------|--------------------------|-------------|----------|------|-----|-----|-------|
@@ -58,6 +58,18 @@ All 49 rows verified. Real ID prefixes observed in prod: checks `ick_`, check de
 | 47 | List org invoices | `ListInvoices` | `hcb invoices <org>` | `hcb_list_invoices` | ✅ | ✅ | ✅ | |
 | 48 | Get an invoice | `GetInvoice` | `hcb invoice <inv_id>` | `hcb_get_invoice` | ✅ | ✅ | ✅ | |
 | 49 | Inspect current token | `TokenInfo` | `hcb auth status` | `hcb_token_info` | ✅ | ✅ | ✅ | |
+| 50 | List org donations (+status filter, expand=stats) | `ListDonations` | `hcb donations <org>` | `hcb_list_donations` | ✅ | ✅ | ✅ | added upstream 2026-07; ids `don_…`; stats.total_cents survives (raw envelope passthrough) |
+| 51 | Get a donation | `GetDonation` | `hcb donation <don_id>` | `hcb_get_donation` | ✅ | ✅ | ✅ | |
+| 52 | List org wire transfers | `ListWires` | `hcb wires <org>` | `hcb_list_wires` | ✅ | ✅ | ✅ | added upstream 2026-07; ids `wir_…` |
+| 53 | Get a wire transfer | `GetWire` | `hcb wire <wir_id>` | `hcb_get_wire` | ✅ | ✅ | ✅ | |
+| 54 | List org team members (organizer positions) | `ListOrganizerPositions` | `hcb team <org>` | `hcb_org_team` | ✅ | ✅ | ✅ | added upstream 2026-07; ids `opn_…`; expand=user (CLI default, MCP always) — without it only user_id renders; role+signee per member |
+
+## UX affordances (beyond raw API passthrough)
+
+- **Compact transaction lists** — `--compact` (CLI) / `compact: true` (MCP) on `transactions`, `card-transactions`, `grant-transactions`, `missing-receipts`: one small summary object per transaction (id, date, amount_cents, memo, code, type, counterparty, by, tag labels; false booleans omitted). ~8× smaller than full output — full `limit=100` pages were observed blowing past MCP clients' result-token limits in production. Implemented client-side in `hcbapi.CompactTransactions`; unit-tested against the recorded fixture.
+- **hcb_code guidance** — `GetTransaction` rejects `HCB-…` ids client-side with an explanation (agents paste internal hcb_codes from warehouse data; the v4 API only takes `txn_…` public ids and would 404 confusingly).
+- **admin:read hint** — a 403 from user lookup explains it's the token's missing `admin:read` scope, not the target user (verified confusion in production usage).
+- **Search semantics documented** — `filters[search]` is a case-insensitive substring match over memo fields only (memo/friendly_memo/custom_memo); it never matches counterparty/recipient/merchant names. Tool descriptions and flag help now say so.
 
 ## Auth infrastructure (not MCP tools)
 
@@ -71,8 +83,8 @@ All 49 rows verified. Real ID prefixes observed in prod: checks `ick_`, check de
 ```sh
 go test ./...                      # unit + component + MCP session tests (fixtures)
 go build -o bin/hcb ./cmd/hcb && go build -o bin/hcb-mcp ./cmd/hcb-mcp
-./scripts/e2e_cli.sh               # 52 live CLI checks against prod
-go run ./scripts/e2e-mcp           # 45 live MCP stdio tool calls against prod
+./scripts/e2e_cli.sh               # 59 live CLI checks against prod
+go run ./scripts/e2e-mcp           # 51 live MCP stdio tool calls against prod
 python3 scripts/record_fixtures.py # refresh recorded fixtures
 ```
 

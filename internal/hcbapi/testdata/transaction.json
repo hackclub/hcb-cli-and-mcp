@@ -1,8 +1,8 @@
 {
-  "id": "txn_x20af76",
+  "id": "txn_x39604b",
   "object": "transaction",
-  "date": "2026-07-03",
-  "amount_cents": -1543,
+  "date": "2026-07-30",
+  "amount_cents": -1200,
   "memo": "Example memo",
   "has_custom_memo": false,
   "pending": true,
@@ -10,26 +10,26 @@
   "reversed": false,
   "tags": [],
   "code": "600",
-  "missing_receipt": true,
+  "missing_receipt": false,
   "lost_receipt": false,
   "card_charge": {
     "merchant": {
       "name": "Example Name",
       "smart_name": "Example Name",
-      "country": "CA",
-      "network_id": "BHF6E5ONJSHHWZT"
+      "country": "US",
+      "network_id": "x262535"
     },
-    "charge_method": "online",
-    "spent_at": "2026-07-03T00:51:33.000Z",
-    "wallet": null,
+    "charge_method": "contactless",
+    "spent_at": "2026-07-30T18:08:12.000Z",
+    "wallet": "google_pay",
     "card": {
-      "id": "crd_x13a0ef",
+      "id": "crd_x36b758",
       "object": "stripe_card",
       "type": "virtual",
       "status": "active",
-      "name": "Example Name",
+      "name": null,
       "last4": "1234",
-      "exp_month": 5,
+      "exp_month": 6,
       "exp_year": 2028,
       "organization": {
         "id": "org_x290a10",
@@ -49,15 +49,15 @@
         "created_at": "2019-05-16T12:52:11.747Z"
       },
       "user": {
-        "id": "usr_xab3644",
+        "id": "usr_xe6d5ae",
         "object": "user",
         "avatar": "https://hcb.example.com/files/example-avatar.png",
-        "admin": true,
-        "auditor": true,
+        "admin": false,
+        "auditor": false,
         "name": "Example Name"
       },
-      "last_frozen_by_id": "usr_xfbfbc9",
-      "created_at": "2025-06-20T15:43:08.530Z"
+      "last_frozen_by_id": null,
+      "created_at": "2025-09-11T16:25:28.701Z"
     }
   },
   "organization": {

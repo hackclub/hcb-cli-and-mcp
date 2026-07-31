@@ -1,36 +1,36 @@
 [
   {
-    "id": "org_xdd8250",
+    "id": "org_x11789c",
     "object": "organization",
     "parent_id": "org_x290a10",
     "name": "Example Name",
     "country": null,
     "slug": "example-org",
     "financially_frozen": false,
-    "icon": null,
+    "icon": "https://hcb.example.com/files/example-icon.png",
     "donation_page_available": true,
     "playground_mode": false,
     "playground_mode_meeting_requested": null,
     "transparent": true,
     "fee_percentage": 0.0,
     "background_image": null,
-    "created_at": "2026-02-08T19:42:18.885Z"
+    "created_at": "2020-11-05T01:11:05.935Z"
   },
   {
-    "id": "org_x98cc0a",
+    "id": "org_x66bde5",
     "object": "organization",
     "parent_id": "org_x290a10",
     "name": "Example Name",
     "country": "US",
     "slug": "example-org",
     "financially_frozen": false,
-    "icon": null,
+    "icon": "https://hcb.example.com/files/example-icon.png",
     "donation_page_available": true,
     "playground_mode": false,
     "playground_mode_meeting_requested": null,
     "transparent": true,
     "fee_percentage": 0.0,
     "background_image": null,
-    "created_at": "2026-04-10T20:10:56.456Z"
+    "created_at": "2023-05-05T23:08:52.252Z"
   }
 ]

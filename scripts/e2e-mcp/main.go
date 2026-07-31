@@ -91,6 +91,20 @@ func main() {
 	}
 	json.Unmarshal([]byte(profileText), &profile)
 
+	// lookup expectations depend on whether the token has admin:read
+	hasAdmin := false
+	if tokenText, isErr, err := call(ctx, "hcb_token_info", map[string]any{}); err == nil && !isErr {
+		var tok struct {
+			Scope []string `json:"scope"`
+		}
+		json.Unmarshal([]byte(tokenText), &tok)
+		for _, s := range tok.Scope {
+			if s == "admin:read" {
+				hasAdmin = true
+			}
+		}
+	}
+
 	var txn, rtxn string // any transaction; transaction with receipts
 	if text, isErr, err := call(ctx, "hcb_list_transactions", map[string]any{"organization": org, "limit": 25}); err == nil && !isErr {
 		var env struct {
@@ -121,8 +135,10 @@ func main() {
 	deposit := discover("hcb_list_check_deposits", map[string]any{"organization": org})
 	sponsor := discover("hcb_list_sponsors", map[string]any{"organization": org})
 	invoice := discover("hcb_list_invoices", map[string]any{"organization": org})
-	fmt.Printf("discovered: txn=%s rtxn=%s tag=%s card=%s grant=%s check=%s deposit=%s sponsor=%s invoice=%s\n\n",
-		txn, rtxn, tag, card, grant, check, deposit, sponsor, invoice)
+	donation := discover("hcb_list_donations", map[string]any{"organization": org, "limit": 3})
+	wire := discover("hcb_list_wires", map[string]any{"organization": org, "limit": 3})
+	fmt.Printf("discovered: txn=%s rtxn=%s tag=%s card=%s grant=%s check=%s deposit=%s sponsor=%s invoice=%s donation=%s wire=%s\n\n",
+		txn, rtxn, tag, card, grant, check, deposit, sponsor, invoice, donation, wire)
 
 	tmp, _ := os.MkdirTemp("", "hcb-mcp-e2e")
 
@@ -130,8 +146,7 @@ func main() {
 		{tool: "hcb_get_profile", args: map[string]any{"expand": "shipping_address"}, contains: `"object":"user"`},
 		{tool: "hcb_available_icons", args: map[string]any{}},
 		{tool: "hcb_token_info", args: map[string]any{}, contains: "scope"},
-		{tool: "hcb_lookup_user", args: map[string]any{"query": profile.ID}, expectErr: true},          // no admin:read
-		{tool: "hcb_lookup_user", args: map[string]any{"query": "user@example.com"}, expectErr: true}, // no admin:read
+		{tool: "hcb_lookup_user", args: map[string]any{"query": profile.ID}, expectErr: !hasAdmin}, // succeeds only with admin:read
 		{tool: "hcb_list_organizations", args: map[string]any{"expand": "balance_cents"}, contains: `"organization"`},
 		{tool: "hcb_get_organization", args: map[string]any{"organization": org, "expand": "balance_cents,users,account_number,reporting"}, contains: `"organization"`},
 		{tool: "hcb_org_balance_history", args: map[string]any{"organization": org}, contains: `"date"`},
@@ -139,7 +154,9 @@ func main() {
 		{tool: "hcb_list_sub_organizations", args: map[string]any{"organization": org}},
 		{tool: "hcb_list_transactions", args: map[string]any{"organization": org, "limit": 3}, contains: `"total_count"`},
 		{tool: "hcb_list_transactions", args: map[string]any{"organization": org, "limit": 3, "type": "card_charge", "expenses": true, "start_date": "2020-01-01"}, contains: `"has_more"`},
+		{tool: "hcb_list_transactions", args: map[string]any{"organization": org, "limit": 3, "compact": true}, contains: `"total_count"`},
 		{tool: "hcb_get_transaction", args: map[string]any{"id": txn}, contains: `"transaction"`},
+		{tool: "hcb_get_transaction", args: map[string]any{"id": "HCB-600-iauth_example"}, expectErr: true}, // hcb_code guidance
 		{tool: "hcb_get_transaction", args: map[string]any{"id": txn, "organization": org}, contains: `"transaction"`},
 		{tool: "hcb_memo_suggestions", args: map[string]any{"organization": org, "transaction": txn}},
 		{tool: "hcb_missing_receipts", args: map[string]any{"limit": 3}, contains: `"total_count"`},
@@ -171,6 +188,11 @@ func main() {
 		{tool: "hcb_get_sponsor", args: map[string]any{"id": sponsor}, contains: `"sponsor"`},
 		{tool: "hcb_list_invoices", args: map[string]any{"organization": org}, contains: `"invoice"`},
 		{tool: "hcb_get_invoice", args: map[string]any{"id": invoice}, contains: `"invoice"`},
+		{tool: "hcb_list_donations", args: map[string]any{"organization": org, "limit": 3, "expand": "stats"}, contains: `"total_count"`},
+		{tool: "hcb_get_donation", args: map[string]any{"id": donation}, contains: `"donation"`},
+		{tool: "hcb_list_wires", args: map[string]any{"organization": org, "limit": 3}, contains: `"total_count"`},
+		{tool: "hcb_get_wire", args: map[string]any{"id": wire}, contains: `"wire"`},
+		{tool: "hcb_org_team", args: map[string]any{"organization": org, "limit": 5}, contains: `"organizer_position"`},
 	}
 
 	pass, fail, skip := 0, 0, 0

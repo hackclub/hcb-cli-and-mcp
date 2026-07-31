@@ -79,6 +79,13 @@ def sanitize(node, key=""):
             return "example-receipt.pdf"
         if key == "last4":
             return "1234"
+        if key in {"bic_code", "account_number", "routing_number", "swift_bic_code",
+                   "account_number_last4", "check_number"}:
+            return "REDACTED"
+        if key == "hcb_code" or node.startswith("HCB-"):
+            return "HCB-000-example"
+        if key in {"recurring_donor_id", "network_id"}:  # bare hashids with no prefix
+            return fake_id(f"{key}_{node}").split("_", 2)[-1]
         if key == "slug" and node != "hq":
             return "example-org"
         if URL_RE.match(node):

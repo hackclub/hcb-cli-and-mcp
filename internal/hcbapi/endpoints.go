@@ -3,6 +3,7 @@ package hcbapi
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"net/url"
 	"strconv"
 	"strings"
@@ -154,6 +155,9 @@ func (c *Client) ListOrgTransactions(ctx context.Context, org string, filters Tr
 // org-scoped route is used (amounts/memos are rendered from that org's view);
 // otherwise the top-level route auto-expands the organization.
 func (c *Client) GetTransaction(ctx context.Context, id, org string) (json.RawMessage, error) {
+	if strings.HasPrefix(id, "HCB-") {
+		return nil, fmt.Errorf("%q is an internal hcb_code, which the v4 API cannot look up directly; transactions use txn_… public ids — find it by filtering the org's ledger by date/amount/type/memo instead", id)
+	}
 	if org != "" {
 		return c.Get(ctx, "/api/v4/organizations/"+url.PathEscape(org)+"/transactions/"+url.PathEscape(id), nil)
 	}
@@ -305,6 +309,52 @@ func (c *Client) ListCheckDeposits(ctx context.Context, org string) (json.RawMes
 // GetCheckDeposit returns one check deposit (ckd_…).
 func (c *Client) GetCheckDeposit(ctx context.Context, id string) (json.RawMessage, error) {
 	return c.Get(ctx, "/api/v4/check_deposits/"+url.PathEscape(id), nil)
+}
+
+// ListWires lists an org's outgoing international wire transfers (newest first).
+func (c *Client) ListWires(ctx context.Context, org string, page PageOpts) (*Page, error) {
+	q := url.Values{"event_id": {org}}
+	page.apply(q)
+	return c.GetPage(ctx, "/api/v4/wires", q)
+}
+
+// GetWire returns one wire transfer by public id.
+func (c *Client) GetWire(ctx context.Context, id string) (json.RawMessage, error) {
+	return c.Get(ctx, "/api/v4/wires/"+url.PathEscape(id), nil)
+}
+
+// --- Donations ---
+
+// ListDonations lists an org's donations (newest first), paginated.
+// status filters by visible state (e.g. deposited, in_transit).
+// expand: stats (adds a stats object with total_cents successfully raised).
+// Returned raw so the optional stats key survives alongside the pagination
+// envelope.
+func (c *Client) ListDonations(ctx context.Context, org, status string, expand []string, page PageOpts) (json.RawMessage, error) {
+	q := expandQuery(expand)
+	q.Set("event_id", org)
+	if status != "" {
+		q.Set("status", status)
+	}
+	page.apply(q)
+	return c.Get(ctx, "/api/v4/donations", q)
+}
+
+// GetDonation returns one donation (don_…).
+func (c *Client) GetDonation(ctx context.Context, id string) (json.RawMessage, error) {
+	return c.Get(ctx, "/api/v4/donations/"+url.PathEscape(id), nil)
+}
+
+// --- Team ---
+
+// ListOrganizerPositions lists an org's team members (organizer positions):
+// each with role and signee status. expand: user (the member's full user
+// record; without it only user_id is returned).
+func (c *Client) ListOrganizerPositions(ctx context.Context, org string, expand []string, page PageOpts) (*Page, error) {
+	q := expandQuery(expand)
+	q.Set("event_id", org)
+	page.apply(q)
+	return c.GetPage(ctx, "/api/v4/organizer_positions", q)
 }
 
 // --- Invoicing & sponsors ---

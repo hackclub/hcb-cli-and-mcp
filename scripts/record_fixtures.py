@@ -35,7 +35,7 @@ def truncate(node, max_items=2):
     return node
 
 
-REDACT_KEYS = {"account_number", "routing_number", "swift_bic_code"}
+REDACT_KEYS = {"account_number", "routing_number", "swift_bic_code", "bic_code"}
 
 
 def redact(node):
@@ -44,6 +44,8 @@ def redact(node):
     if isinstance(node, dict):
         out = {}
         for k, v in node.items():
+            if k == "_debug":  # admin-only block carrying real internal hcb_codes
+                continue
             if k in REDACT_KEYS and isinstance(v, str):
                 out[k] = "REDACTED"
             elif k.endswith("email") and isinstance(v, str):
@@ -185,6 +187,33 @@ def main():
     first_nonempty("invoices.json", lambda oid: get("/api/v4/invoices", event_id=oid),
                    detail=lambda vs: try_save("invoice.json",
                                               lambda: get(f"/api/v4/invoices/{vs[0]['id']}")))
+
+    # paginated-envelope endpoints: data lives under "data"
+    def first_nonempty_paged(name, path_fn, detail=None):
+        for oid in org_ids:
+            try:
+                data = path_fn(oid)
+            except Exception:
+                continue
+            if data.get("data"):
+                print(f"  ({name} from {slug_by_id[oid]})")
+                save(name, data)
+                if detail:
+                    detail(data["data"])
+                return
+        print(f"  ({name}: none found anywhere, saving empty envelope)")
+        save(name, {"total_count": 0, "has_more": False, "data": []})
+
+    first_nonempty_paged("donations.json",
+                         lambda oid: get("/api/v4/donations", event_id=oid, limit=2, expand="stats"),
+                         detail=lambda ds: try_save("donation.json",
+                                                    lambda: get(f"/api/v4/donations/{ds[0]['id']}")))
+    first_nonempty_paged("wires.json",
+                         lambda oid: get("/api/v4/wires", event_id=oid, limit=2),
+                         detail=lambda ws: try_save("wire.json",
+                                                    lambda: get(f"/api/v4/wires/{ws[0]['id']}")))
+    try_save("organizer_positions.json",
+             lambda: get("/api/v4/organizer_positions", event_id=hq, expand="user", limit=2))
 
     save("available_icons.json", get("/api/v4/user/available_icons"))
     try_save("token_info.json", lambda: get("/api/v4/oauth/token/info"))
