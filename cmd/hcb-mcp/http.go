@@ -51,7 +51,10 @@ func loadHTTPConfig() (httpConfig, error) {
 
 // origin reconstructs this server's public origin from the request.
 func origin(r *http.Request) string {
-	scheme := r.Header.Get("X-Forwarded-Proto")
+	// A proxy chain may append rather than replace ("https, http"); the first
+	// hop is the one the browser spoke.
+	scheme, _, _ := strings.Cut(r.Header.Get("X-Forwarded-Proto"), ",")
+	scheme = strings.TrimSpace(scheme)
 	if scheme == "" {
 		if r.TLS != nil {
 			scheme = "https"
@@ -91,8 +94,11 @@ func writeJSON(w http.ResponseWriter, status int, v any) {
 //	/.well-known/oauth-authorization-server     AS metadata (RFC 8414) — issuer is
 //	                                            this host; see oauth.go for the
 //	                                            sub-authorization-server design
-//	/oauth/authorize                            sub-AS authorize: any client
-//	                                            redirect_uri, bounces through HCB
+//	/oauth/authorize                            sub-AS authorize: any validated
+//	                                            redirect_uri, gated by the
+//	                                            bridge's own consent page (GET
+//	                                            shows it, POST approves), then
+//	                                            bounces through HCB
 //	/oauth/callback                             the ONE redirect URI registered
 //	                                            on the HCB OAuth app
 //	/oauth/register                             dynamic client registration stub
@@ -144,8 +150,10 @@ func httpHandlerWithSessionTimeout(cfg httpConfig, sessionTimeout time.Duration)
 
 	// Dynamic client registration stub: HCB (Doorkeeper) has no DCR, so every
 	// "registration" returns the one pre-registered HCB OAuth app. The client
-	// secret is never disclosed — the token proxy injects it server-side. The
-	// redirect URIs echoed here must also be registered on the HCB app.
+	// secret is never disclosed — the token proxy injects it server-side.
+	// Registering here grants nothing: the redirect URIs are echoed straight
+	// back, and what actually constrains where a code may go is
+	// validClientRedirect plus the user's approval on the consent page.
 	mux.HandleFunc("/oauth/register", func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodPost || cfg.oauthClientID == "" {
 			http.NotFound(w, r)
@@ -174,7 +182,8 @@ func httpHandlerWithSessionTimeout(cfg httpConfig, sessionTimeout time.Duration)
 		})
 	})
 
-	// Sub-AS legs of the authorization-code flow (see oauth.go).
+	// Sub-AS legs of the authorization-code flow (see oauth.go). Authorize
+	// handles both the consent page (GET) and its approval (POST).
 	mux.HandleFunc("/oauth/authorize", bridge.handleAuthorize(cfg))
 	mux.HandleFunc("/oauth/callback", bridge.handleCallback(cfg))
 
@@ -198,6 +207,22 @@ func httpHandlerWithSessionTimeout(cfg httpConfig, sessionTimeout time.Duration)
 				return
 			}
 			r.PostForm.Set("scope", scope)
+		}
+		// The fall-through below injects the confidential client secret, so
+		// the grant type must be allowlisted: HCB's Doorkeeper also enables
+		// client_credentials, which would otherwise let any unauthenticated
+		// caller mint an application token through this endpoint.
+		// Exactly one value: Go's Get returns the first, but Rack (which
+		// parses this form upstream) takes the last, so a repeated key would
+		// let a caller show us one grant type and HCB another.
+		switch gt := r.PostForm["grant_type"]; {
+		case len(gt) == 1 && (gt[0] == "authorization_code" || gt[0] == "refresh_token"):
+		default:
+			writeJSON(w, http.StatusBadRequest, map[string]string{
+				"error":             "unsupported_grant_type",
+				"error_description": "only authorization_code and refresh_token are supported",
+			})
+			return
 		}
 		if r.PostForm.Get("grant_type") == "authorization_code" {
 			tokenJSON, ok, errCode := bridge.redeem(
@@ -376,5 +401,13 @@ func serveHTTP(addr string) error {
 	}
 	fmt.Fprintf(os.Stderr, "hcb-mcp listening on %s (endpoint /mcp, health /healthz, oauth bridge %v)\n",
 		addr, cfg.oauthClientID != "")
-	return http.ListenAndServe(addr, httpHandler(cfg))
+	srv := &http.Server{
+		Addr:              addr,
+		Handler:           httpHandler(cfg),
+		ReadHeaderTimeout: 10 * time.Second,
+		ReadTimeout:       30 * time.Second,
+		WriteTimeout:      60 * time.Second,
+		IdleTimeout:       120 * time.Second,
+	}
+	return srv.ListenAndServe()
 }

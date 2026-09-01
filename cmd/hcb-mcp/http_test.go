@@ -552,3 +552,31 @@ func TestServerOwnedCredentialsRequireEncryptionKey(t *testing.T) {
 		t.Fatalf("oauth-only server should not require server credential encryption: %v", err)
 	}
 }
+
+// TestTokenRejectsClientCredentials — the fall-through proxy injects the
+// confidential client secret, and HCB's Doorkeeper enables client_credentials,
+// so an unrestricted proxy would mint application tokens for anyone. The
+// duplicate-key case matters because Go reads the first value here while Rack
+// reads the last one upstream.
+func TestTokenRejectsClientCredentials(t *testing.T) {
+	srv := httptest.NewServer(httpHandler(testCfg("https://hcb.example")))
+	defer srv.Close()
+
+	for name, body := range map[string]string{
+		"plain":         "grant_type=client_credentials&scope=admin:read",
+		"duplicate key": "grant_type=authorization_code&grant_type=client_credentials&scope=read",
+	} {
+		t.Run(name, func(t *testing.T) {
+			resp, err := http.Post(srv.URL+"/oauth/token", "application/x-www-form-urlencoded", strings.NewReader(body))
+			if err != nil {
+				t.Fatal(err)
+			}
+			defer resp.Body.Close()
+			var got map[string]any
+			json.NewDecoder(resp.Body).Decode(&got)
+			if resp.StatusCode != http.StatusBadRequest || got["error"] != "unsupported_grant_type" {
+				t.Errorf("= %d %v, want 400 unsupported_grant_type", resp.StatusCode, got)
+			}
+		})
+	}
+}

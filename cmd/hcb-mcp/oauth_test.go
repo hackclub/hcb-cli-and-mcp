@@ -80,8 +80,8 @@ func TestSubOAuthFullFlow(t *testing.T) {
 	const verifier = "cli-verifier-abcdefghijklmnop"
 	clientRedirect := "http://localhost:9999/cb"
 
-	// Leg 1: client authorize → 302 to HCB with the server's own callback.
-	loc := get302(t, srv.URL+"/oauth/authorize?"+url.Values{
+	// Leg 1: client authorize → consent → 302 to HCB with our own callback.
+	user, loc := authorizeVia(t, srv.URL, url.Values{
 		"client_id":             {"hcb-cli"},
 		"redirect_uri":          {clientRedirect},
 		"response_type":         {"code"},
@@ -89,7 +89,7 @@ func TestSubOAuthFullFlow(t *testing.T) {
 		"scope":                 {"read"},
 		"code_challenge":        {pkce(verifier)},
 		"code_challenge_method": {"S256"},
-	}.Encode())
+	})
 	if !strings.HasPrefix(loc.String(), hcb.URL+"/api/v4/oauth/authorize") {
 		t.Fatalf("authorize redirected to %s, want HCB", loc)
 	}
@@ -106,7 +106,7 @@ func TestSubOAuthFullFlow(t *testing.T) {
 	}
 
 	// Leg 2: HCB sends the browser back → code minted, client state restored.
-	loc = get302(t, srv.URL+"/oauth/callback?"+url.Values{
+	loc = user.get302(srv.URL + "/oauth/callback?" + url.Values{
 		"code": {"hcb-code-1"}, "state": {nonce},
 	}.Encode())
 	if !strings.HasPrefix(loc.String(), clientRedirect) {
@@ -160,12 +160,14 @@ func TestSubOAuthForwardsAdminReadScope(t *testing.T) {
 	srv := httptest.NewServer(httpHandler(testCfg("https://hcb.example")))
 	defer srv.Close()
 
-	loc := get302(t, srv.URL+"/oauth/authorize?"+url.Values{
-		"client_id":     {"hcb-cli"},
-		"redirect_uri":  {"http://localhost:9999/cb"},
-		"response_type": {"code"},
-		"scope":         {"read admin:read"},
-	}.Encode())
+	_, loc := authorizeVia(t, srv.URL, url.Values{
+		"client_id":             {"hcb-cli"},
+		"redirect_uri":          {"http://localhost:9999/cb"},
+		"response_type":         {"code"},
+		"scope":                 {"read admin:read"},
+		"code_challenge":        {pkce("v")},
+		"code_challenge_method": {"S256"},
+	})
 	if loc.Query().Get("scope") != "read admin:read" {
 		t.Fatalf("upstream scope = %q, want read admin:read", loc.Query().Get("scope"))
 	}
@@ -175,17 +177,22 @@ func TestSubOAuthRejectsWriteScopes(t *testing.T) {
 	srv := httptest.NewServer(httpHandler(testCfg("https://hcb.example")))
 	defer srv.Close()
 
-	loc := get302(t, srv.URL+"/oauth/authorize?"+url.Values{
-		"client_id":     {"hcb-cli"},
-		"redirect_uri":  {"http://localhost:9999/cb"},
-		"response_type": {"code"},
-		"scope":         {"read admin:write"},
+	resp, err := noRedirect().Get(srv.URL + "/oauth/authorize?" + url.Values{
+		"client_id":             {"hcb-cli"},
+		"redirect_uri":          {"http://localhost:9999/cb"},
+		"response_type":         {"code"},
+		"scope":                 {"read admin:write"},
+		"code_challenge":        {pkce("v")},
+		"code_challenge_method": {"S256"},
 	}.Encode())
-	if !strings.HasPrefix(loc.String(), "http://localhost:9999/cb") {
-		t.Fatalf("error redirect = %s, want client redirect", loc)
+	if err != nil {
+		t.Fatal(err)
 	}
-	if loc.Query().Get("error") != "invalid_scope" {
-		t.Fatalf("error = %q, want invalid_scope", loc.Query().Get("error"))
+	defer resp.Body.Close()
+	var body map[string]string
+	json.NewDecoder(resp.Body).Decode(&body)
+	if resp.StatusCode != http.StatusBadRequest || body["error"] != "invalid_scope" {
+		t.Fatalf("write scope = %d %v, want 400 invalid_scope", resp.StatusCode, body)
 	}
 }
 
@@ -195,13 +202,13 @@ func TestSubOAuthWrongVerifierRejected(t *testing.T) {
 	srv := httptest.NewServer(httpHandler(testCfg(hcb.URL)))
 	defer srv.Close()
 
-	loc := get302(t, srv.URL+"/oauth/authorize?"+url.Values{
+	user, loc := authorizeVia(t, srv.URL, url.Values{
 		"client_id": {"x"}, "redirect_uri": {"https://claude.ai/api/mcp/auth_callback"},
 		"response_type": {"code"}, "code_challenge": {pkce("right-verifier")},
 		"code_challenge_method": {"S256"},
-	}.Encode())
+	})
 	nonce := loc.Query().Get("state")
-	loc = get302(t, srv.URL+"/oauth/callback?"+url.Values{"code": {"hcb-code-1"}, "state": {nonce}}.Encode())
+	loc = user.get302(srv.URL + "/oauth/callback?" + url.Values{"code": {"hcb-code-1"}, "state": {nonce}}.Encode())
 	code := loc.Query().Get("code")
 
 	resp, err := http.Post(srv.URL+"/oauth/token", "application/x-www-form-urlencoded",
@@ -247,13 +254,14 @@ func TestSubOAuthUpstreamDenialPassedThrough(t *testing.T) {
 	srv := httptest.NewServer(httpHandler(testCfg("https://hcb.example")))
 	defer srv.Close()
 
-	loc := get302(t, srv.URL+"/oauth/authorize?"+url.Values{
+	user, loc := authorizeVia(t, srv.URL, url.Values{
 		"client_id": {"x"}, "redirect_uri": {"https://claude.ai/cb"},
 		"response_type": {"code"}, "state": {"s1"},
-	}.Encode())
+		"code_challenge": {pkce("v")}, "code_challenge_method": {"S256"},
+	})
 	nonce := loc.Query().Get("state")
 
-	loc = get302(t, srv.URL+"/oauth/callback?"+url.Values{
+	loc = user.get302(srv.URL + "/oauth/callback?" + url.Values{
 		"error": {"access_denied"}, "state": {nonce},
 	}.Encode())
 	q := loc.Query()
@@ -271,7 +279,9 @@ func TestSubOAuthUnknownCallbackState(t *testing.T) {
 		t.Fatal(err)
 	}
 	resp.Body.Close()
-	if resp.StatusCode != 400 {
-		t.Errorf("unknown state = %d, want 400", resp.StatusCode)
+	// Unknown and wrong-browser are reported identically, so the callback
+	// does not confirm whether a given state exists.
+	if resp.StatusCode != http.StatusForbidden {
+		t.Errorf("unknown state = %d, want 403", resp.StatusCode)
 	}
 }
